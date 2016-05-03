@@ -24,13 +24,15 @@ public:
 		for (int j = 0; j < matrix[0].size(); j++)
 		{
 			// Iterating over each row
+			vector<double> row;
 			for (int i = 0; i < matrix.size(); i++)
 			{
-				vector<double> row;
 				row.push_back(matrix[i][j]);
 			}	
 			transposedMatrix.push_back(row);
 		}
+
+		return transposedMatrix;
 	}
 
-}
+};
