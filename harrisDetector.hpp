@@ -1,6 +1,7 @@
 #include "libs/CImg.h"
 #include <iostream>
 #include <vector>
+#include <math.h>
 
 using namespace cimg_library;
 
@@ -25,8 +26,8 @@ public:
 		por exemplo: convolucao da derivada de uma Gaussiana */
 
 		// Calculating Ix, Iy
-		CImg<double> ix(width, height, 1, 1, 0);
-		CImg<double> iy(width, height, 1, 1, 0);
+		CImg<double> ix(width, height,1,1,0);
+		CImg<double> iy(width, height,1,1,0);
 		// Avoiding dealing with border
 		for (int x = 1; x < width - 1; x++)
 		{
@@ -45,7 +46,6 @@ public:
 		ix(width - 1,height - 1) = image(width - 1,height - 1);
 		iy(width - 1,height - 1) = image(width - 1,height - 1);
 
-
 		// 2. calcular os produtos Ix2 = IxIx, Iy2 = IyIy e Ixy = IxIy
 		CImg<double> ixx = ix*ix;
 		CImg<double> iyy = iy*iy;
@@ -58,6 +58,7 @@ public:
 
 		// 4. para cada pixel: encontrar os autovalores e utilizar uma das medidas
 		std::vector<std::vector<double> > eigenValues;
+		double maxValue = 0.0;
 		for (int x = 0; x < width; x++)
 		{
 			std::vector<double> row;
@@ -65,32 +66,86 @@ public:
 			{
 				// [[Ixx Ixy],[Ixy Iyy]]
 				CImg<double> matrix(2,2,1,1,0);
-				matrix(0,0) = ixx(x,y);
-				matrix(0,1) = ixy(x,y);
-				matrix(1,0) = ixy(x,y);
-				matrix(1,1) = iyy(x,y);
+				matrix(0,0) = filterIxx(x,y);
+				matrix(0,1) = filterIxy(x,y);
+				matrix(1,0) = filterIxy(x,y);
+				matrix(1,1) = filterIyy(x,y);
 
 				CImgList<double> eigen      = matrix.get_eigen();
 				CImg<double> eigenValuesImg = eigen(0);
 				double lambda0              = eigenValuesImg(0,0);
-				double lambda1              = eigenValuesImg(1,1);
+				double lambda1              = eigenValuesImg(0,1);
+
 				double measure;
-				if (lambda0 > lambda1)
+				// measure = abs(lambda0*lambda1 - 0.06*(pow(lambda0+lambda1, 2)));
+				if (lambda0 < lambda1)
 				{
-					measure = lambda0 - 0.05*lambda1;
+					measure = abs(lambda0 - 0.05*lambda1);
 				}
 				else
 				{
-					measure = lambda1 - 0.05*lambda0;	
+					measure = abs(lambda1 - 0.05*lambda0);	
 				}
+
+				std::cout << measure << std::endl;
 				row.push_back(measure);
+
+				// Using this variable to define a threshold
+				if (measure > maxValue)
+				{
+					maxValue = measure;
+				}
 			}
 			eigenValues.push_back(row);	
 		}
 
 		//  5. limiarizar para encontrar maximos
+		double threshold = 0.5*maxValue;
+		CImg<double> points(width, height, 1, 1, 0);
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				if (threshold <= eigenValues[x][y])
+				{
+					image(x,y,0,0) = 255.0;
+				}
+			}
+		}
 
 		// 6. limitar numero de maximos por regiao
+		// for (int x = 0; x < width - 5; x++)
+		// {
+		// 	for (int y = 0; y < height - 5; y++)
+		// 	{
+		// 		double maxValue = 0.0;
+		// 		for (int i = 0; i < 5; i++)
+		// 		{
+		// 			for (int j = 0; j < 5; j++)
+		// 			{
+		// 				if (points(x + i, y + j) == 255.0)
+		// 				{
+		// 					if (eigenValues[x+i][i+j] > maxValue)
+		// 					{
+		// 						maxValue = eigenValues[x+i][i+j];
+		// 					}
+		// 				}
+		// 			}
+		// 		}
+		// 		for (int i = 0; i < 5; i++)
+		// 		{
+		// 			for (int j = 0; j < 5; j++)
+		// 			{
+		// 				if (eigenValues[x+i][y+j] < maxValue)
+		// 				{
+		// 					points(x+i,y+j) = 0.0;
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// }
+
+		image.display();
 	}
 
 	CImg<double> filterImage (CImg<double> image)
@@ -98,7 +153,7 @@ public:
 		int height = image.height();
 		int width  = image.width();
 
-		CImg<double> filteredImage(width, height, 1, 1,0);
+		CImg<double> filteredImage(width, height, 1, 1, 0);
 
 		for (int y = 0; y < height; y++)
 		{
@@ -119,7 +174,6 @@ public:
 				}
 			}
 		}
-
 		return filteredImage;	
 	}
 
