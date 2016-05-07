@@ -1,5 +1,6 @@
 #include "libs/CImg.h"
 #include <iostream>
+#include <vector>
 
 using namespace cimg_library;
 
@@ -31,18 +32,18 @@ public:
 		{
 			for (int y = 1; y < height - 1; y++)
 			{
-				ix(x,y,0,1) = image(x+1,y,0,1) - image(x-1,y,0,1);
-				iy(x,y,0,1) = image(x,y+1,0,1) - image(x,y-1,0,1);
+				ix(x,y) = image(x+1,y) - image(x-1,y);
+				iy(x,y) = image(x,y+1) - image(x,y-1);
 			}
 		}
-		ix(0,0,0,1)          = image(0,0,0,1);
-		iy(0,0,0,1)          = image(0,0,0,1);
-		ix(0,height,0,1)     = image(0,height,0,1);
-		iy(0,height,0,1)     = image(0,height,0,1);
-		ix(width,0,0,1)      = image(width,0,0,1);
-		iy(width,0,0,1)      = image(width,0,0,1);
-		ix(width,height,0,1) = image(width,height,0,1);
-		iy(width,height,0,1) = image(width,height,0,1);
+		ix(0,0)                  = image(0,0);
+		iy(0,0)                  = image(0,0);
+		ix(0,height - 1)         = image(0,height - 1);
+		iy(0,height - 1)         = image(0,height - 1);
+		ix(width - 1,0)          = image(width - 1,0);
+		iy(width - 1,0)          = image(width - 1,0);
+		ix(width - 1,height - 1) = image(width - 1,height - 1);
+		iy(width - 1,height - 1) = image(width - 1,height - 1);
 
 
 		// 2. calcular os produtos Ix2 = IxIx, Iy2 = IyIy e Ixy = IxIy
@@ -56,6 +57,36 @@ public:
 		CImg<double> filterIxy = filterImage(ixy);
 
 		// 4. para cada pixel: encontrar os autovalores e utilizar uma das medidas
+		std::vector<std::vector<double> > eigenValues;
+		for (int x = 0; x < width; x++)
+		{
+			std::vector<double> row;
+			for (int y = 0; y < height; y++)
+			{
+				// [[Ixx Ixy],[Ixy Iyy]]
+				CImg<double> matrix(2,2,1,1,0);
+				matrix(0,0) = ixx(x,y);
+				matrix(0,1) = ixy(x,y);
+				matrix(1,0) = ixy(x,y);
+				matrix(1,1) = iyy(x,y);
+
+				CImgList<double> eigen      = matrix.get_eigen();
+				CImg<double> eigenValuesImg = eigen(0);
+				double lambda0              = eigenValuesImg(0,0);
+				double lambda1              = eigenValuesImg(1,1);
+				double measure;
+				if (lambda0 > lambda1)
+				{
+					measure = lambda0 - 0.05*lambda1;
+				}
+				else
+				{
+					measure = lambda1 - 0.05*lambda0;	
+				}
+				row.push_back(measure);
+			}
+			eigenValues.push_back(row);	
+		}
 
 		//  5. limiarizar para encontrar maximos
 
