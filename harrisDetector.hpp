@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <math.h>
+#include <algorithm>
 
 using namespace cimg_library;
 
@@ -19,45 +20,55 @@ public:
 
 	void algorithm (CImg<double> image)
 	{
-		int height = image.height();
-		int width  = image.width();
+		int height    = image.height();
+		int width     = image.width();
+		int depth     = 1;
+		int channel   = 1;
+		int initValue = 0;
 
-		/* 1. calcular Ix e Iy : gradiente na direcao x e y pode usar 
-		por exemplo: convolucao da derivada de uma Gaussiana */
-
-		// Calculating Ix, Iy
-		CImg<double> ix(width, height,1,1,0);
-		CImg<double> iy(width, height,1,1,0);
-		// Avoiding dealing with border
-		for (int x = 1; x < width - 1; x++)
+		// 1. Calculate Ix, Iy
+		CImg<double> ix(width, height,depth,channel,initValue);
+		CImg<double> iy(width, height,depth,channel,initValue);
+		
+		for (int x = 0; x < width; x++)
 		{
-			for (int y = 1; y < height - 1; y++)
+			for (int y = 0; y < height; y++)
 			{
-				ix(x,y) = image(x+1,y) - image(x-1,y);
-				iy(x,y) = image(x,y+1) - image(x,y-1);
+				if ((y != 0) && (y != (height - 1)))
+				{
+					ix(x,y) = image(x,y+1) - image(x,y-1);	
+				}
+				else
+				{
+					// Avoiding dealing with border
+					ix(x,y) = image(x,y);
+				}
+				
+				if ((x != 0) && (x != (width - 1)))
+				{
+					iy(x,y) = image(x+1,y) - image(x-1,y);
+				}
+				else
+				{
+					// Avoiding dealing with border
+					iy(x,y) = image(x,y);
+				}
 			}
 		}
-		ix(0,0)                  = image(0,0);
-		iy(0,0)                  = image(0,0);
-		ix(0,height - 1)         = image(0,height - 1);
-		iy(0,height - 1)         = image(0,height - 1);
-		ix(width - 1,0)          = image(width - 1,0);
-		iy(width - 1,0)          = image(width - 1,0);
-		ix(width - 1,height - 1) = image(width - 1,height - 1);
-		iy(width - 1,height - 1) = image(width - 1,height - 1);
 
-		// 2. calcular os produtos Ix2 = IxIx, Iy2 = IyIy e Ixy = IxIy
+		// 2. Calculating Ix2 = IxIx, Iy2 = IyIy e Ixy = IxIy
 		CImg<double> ixx = ix*ix;
 		CImg<double> iyy = iy*iy;
 		CImg<double> ixy = ix*iy;
 
-		// 3. convoluir as 3 imagens com uma Gaussiana
+		// 3. Filter images with Gaussian Filter
 		CImg<double> filterIxx = filterImage(ixx);
 		CImg<double> filterIyy = filterImage(iyy);
 		CImg<double> filterIxy = filterImage(ixy);
 
 		// 4. para cada pixel: encontrar os autovalores e utilizar uma das medidas
 		std::vector<std::vector<double> > eigenValues;
+		std::vector<double> sortedValues;
 		double maxValue = 0.0;
 		for (int x = 0; x < width; x++)
 		{
@@ -65,7 +76,7 @@ public:
 			for (int y = 0; y < height; y++)
 			{
 				// [[Ixx Ixy],[Ixy Iyy]]
-				CImg<double> matrix(2,2,1,1,0);
+				CImg<double> matrix(2,2,depth,channel,initValue);
 				matrix(0,0) = filterIxx(x,y);
 				matrix(0,1) = filterIxy(x,y);
 				matrix(1,0) = filterIxy(x,y);
@@ -86,8 +97,7 @@ public:
 				{
 					measure = abs(lambda1 - 0.05*lambda0);	
 				}
-
-				std::cout << measure << std::endl;
+				sortedValues.push_back(measure);
 				row.push_back(measure);
 
 				// Using this variable to define a threshold
@@ -100,8 +110,10 @@ public:
 		}
 
 		//  5. limiarizar para encontrar maximos
-		double threshold = 0.5*maxValue;
-		CImg<double> points(width, height, 1, 1, 0);
+		std::sort(sortedValues.begin(), sortedValues.end());
+		int thresholdIndex = (int) sortedValues.size() * 0.9;
+		double threshold = sortedValues[thresholdIndex];
+		// CImg<double> points(width, height, depth, channel, initValue);
 		for (int x = 0; x < width; x++)
 		{
 			for (int y = 0; y < height; y++)
@@ -109,6 +121,8 @@ public:
 				if (threshold <= eigenValues[x][y])
 				{
 					image(x,y,0,0) = 255.0;
+					image(x,y,0,1) = 0.0;
+					image(x,y,0,2) = 255.0;
 				}
 			}
 		}
@@ -146,6 +160,7 @@ public:
 		// }
 
 		image.display();
+		image.save("test.png");
 	}
 
 	CImg<double> filterImage (CImg<double> image)

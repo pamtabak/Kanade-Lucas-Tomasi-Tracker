@@ -16,11 +16,16 @@ int main(int argc, char * argv[])
 {
 	
 	CImg<double> image1("images/input1.png");
-	// CImg<double> image1(2,2,1,1,0);
-	// image1(0,0) = 255.0;
-	// image1(0,1) = 0.0;
-	// image1(1,0) = 0.0;
-	// image1(1,1) = 255.0;
+	// CImg<double> image1(3,3,1,1,0);
+	// image1(0,0) = 1.0;
+	// image1(0,1) = 2.0;
+	// image1(0,2) = 3.0;
+	// image1(1,0) = 4.0;
+	// image1(1,1) = 5.0;
+	// image1(1,2) = 6.0;
+	// image1(2,0) = 7.0;
+	// image1(2,1) = 8.0;
+	// image1(2,2) = 9.0;
 	
 	HarrisDetector harris;
 	
