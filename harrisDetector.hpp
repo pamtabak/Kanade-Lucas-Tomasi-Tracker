@@ -111,6 +111,7 @@ public:
 
 		//  5. limiarizar para encontrar maximos
 		std::sort(sortedValues.begin(), sortedValues.end());
+		std::unique(sortedValues.begin(),sortedValues.end());
 		int thresholdIndex = (int) sortedValues.size() * 0.9;
 		double threshold = sortedValues[thresholdIndex];
 		// CImg<double> points(width, height, depth, channel, initValue);
