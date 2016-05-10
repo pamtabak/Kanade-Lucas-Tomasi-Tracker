@@ -14,8 +14,12 @@ using namespace cimg_library;
 
 int main(int argc, char * argv[]) 
 {
-	
+	std::vector<CImg<double> > images;
 	CImg<double> image1("images/input1.png");
+	CImg<double> image2("images/input2.png");
+	images.push_back(image1);
+	images.push_back(image2);
+	
 	// CImg<double> image1(3,3,1,1,0);
 	// image1(0,0) = 1.0;
 	// image1(0,1) = 2.0;
@@ -26,11 +30,11 @@ int main(int argc, char * argv[])
 	// image1(2,0) = 7.0;
 	// image1(2,1) = 8.0;
 	// image1(2,2) = 9.0;
+	LucasKanade lucasKanade;
+	lucasKanade.algorithm(images);
+	// HarrisDetector harris;
 	
-	HarrisDetector harris;
-	
-	harris.algorithm(image1);
-	// CImg<double> image2("images/input2.png");
+	// harris.algorithm(image1);
 
     // boost::numeric::ublas::matrix<double> m (3, 3);
     // for (unsigned i = 0; i < m.size1 (); ++ i)
