@@ -20,7 +20,7 @@ public:
 	void algorithm (std::vector<CImg<double> > images)
 	{
 		// I(x+∆x,y+∆y,t+∆t)                 = I(x,y,t) + (∂I/∂x)∆x + (∂I/∂y)∆y + (∂I/∂t)∆t
-		      
+
 		// Image 1                           = Image 2, assuming intensity of the pixel doesnt change
 		// I (x + ∆x, y + ∆y, t + ∆t )       = I (x, y, t)
 
@@ -36,8 +36,33 @@ public:
 		std::vector<CImg<double> > derived = derive(image1);
 		CImg<double> ix = derived[0];
 		CImg<double> iy = derived[1];
+
+		// Calculating It, difference between image 1 and image 2
 	}
 
+	CImg<double> calculateIt (CImg<double> image1, CImg<double> image2)
+	{
+		// Setting image`s attributes
+		int height    = image1.height();
+		int width     = image1.width();
+		int depth     = 1;
+		int channel   = 1;
+		int initValue = 0;
+
+		// Initializing return object
+		CImg<double> it(width, height,depth,channel,initValue);
+
+		// Iterating over each pixel
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				it(x,y) = image2(x,y) - image1(x,y);
+			}
+		}
+
+		return it;
+	}
 	
 	// Calculate image`s derived
 	std::vector<CImg<double> > derive (CImg<double> image)
