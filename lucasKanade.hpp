@@ -1,6 +1,7 @@
 #include "libs/CImg.h"
 #include <iostream>
 #include <vector>
+#include <algorithm>    // std::min_element, std::max_element
 
 using namespace cimg_library;
 
@@ -39,6 +40,14 @@ public:
 		CImg<double> ix = derived[0];
 		CImg<double> iy = derived[1];
 
+		// for (int i = 0; i < width; i++)
+		// {
+		// 	for (int j = 0; j < height; j++)
+		// 	{
+		// 		std::cout << ix(i,j) << std::endl;
+		// 	}
+		// }
+
 		// Calculating It, difference between image 1 and image 2
 		CImg<double> it = calculateIt(image1, image2);
 
@@ -49,8 +58,23 @@ public:
 		// Neighboors: we are gonna get all pixels around the select pixel. And ignore borders
 		CImg<double> minEigenValues(width,height,depth,channel,0);
 		double maximumMinEigenValue = 0.0;
+		
+		std::vector<std::vector<CImg<double> >> allA;
+		std::vector<std::vector<CImg<double> >> allB;	
+
+		std::vector<CImg<double> > fixingBorderIssue;
+		fixingBorderIssue.push_back(minEigenValues);
+		allA.push_back(fixingBorderIssue);
+		allB.push_back(fixingBorderIssue);
+
 		for (int x = 1; x < width - 1; x++)
 		{
+			std::vector<CImg<double> > rowA;
+			std::vector<CImg<double> > rowB;
+
+			rowA.push_back(minEigenValues);
+			rowB.push_back(minEigenValues);
+
 			for (int y = 1; y < height - 1; y++)
 			{
 				// Initializing A matrix	
@@ -58,41 +82,45 @@ public:
 				CImg<double> b(1, 9,depth,channel,initValue);
 
 				// We are going to apply Gaussian weights
-				a(0,0) = 1/16 * ix(x-1,y-1);
-				a(0,1) = 1/16 * iy(x-1,y-1);
-				b(0,0) = 1/16 * it(x-1,y-1);
+				
+				a(0,0) = ix(x-1,y-1)/16;
+				a(0,1) = iy(x-1,y-1)/16;
+				b(0,0) = it(x-1,y-1)/16;
 
-				a(1,0) = 2/16 * ix(x,y-1);
-				a(1,1) = 2/16 * iy(x,y-1);
-				b(0,1) = 2/16 * it(x,y-1);
+				a(1,0) = 2 * ix(x,y-1)/16;
+				a(1,1) = 2 * iy(x,y-1)/16;
+				b(0,1) = 2 * it(x,y-1)/16;
 
-				a(2,0) = 1/16 * ix(x+1,y-1);
-				a(2,1) = 1/16 * iy(x+1,y-1);
-				b(0,2) = 1/16 * it(x+1,y-1);
+				a(2,0) = ix(x+1,y-1)/16;
+				a(2,1) = iy(x+1,y-1)/16;
+				b(0,2) = it(x+1,y-1)/16;
 
-				a(3,0) = 2/16 * ix(x-1,y);
-				a(3,1) = 2/16 * iy(x-1,y);
-				b(0,3) = 2/16 * it(x-1,y);
+				a(3,0) = 2 * ix(x-1,y)/16;
+				a(3,1) = 2 * iy(x-1,y)/16;
+				b(0,3) = 2 * it(x-1,y)/16;
 
-				a(4,0) = 4/16 * ix(x,y); // current pixel
-				a(4,1) = 4/16 * iy(x,y); // current pixel
-				b(4,0) = 4/16 * it(x,y); // current pixel
+				a(4,0) = 4 * ix(x,y)/16; // current pixel
+				a(4,1) = 4 * iy(x,y)/16; // current pixel
+				b(4,0) = 4 * it(x,y)/16; // current pixel
 
-				a(5,0) = 2/16 * ix(x+1,y);
-				a(5,1) = 2/16 * iy(x+1,y);
-				b(0,5) = 2/16 * it(x+1,y);
+				a(5,0) = 2 * ix(x+1,y)/16;
+				a(5,1) = 2 * iy(x+1,y)/16;
+				b(0,5) = 2 * it(x+1,y)/16;
 
-				a(6,0) = 1/16 * ix(x-1,y+1);
-				a(6,1) = 1/16 * iy(x-1,y+1);
-				b(0,6) = 1/16 * it(x-1,y+1);
+				a(6,0) = ix(x-1,y+1)/16;
+				a(6,1) = iy(x-1,y+1)/16;
+				b(0,6) = it(x-1,y+1)/16;
 
-				a(7,0) = 2/16 * ix(x,y+1);
-				a(7,1) = 2/16 * iy(x,y+1);
-				b(0,7) = 2/16 * it(x,y+1);
+				a(7,0) = 2 * ix(x,y+1)/16;
+				a(7,1) = 2 * iy(x,y+1)/16;
+				b(0,7) = 2 * it(x,y+1)/16;
 
-				a(8,0) = 1/16 * ix(x+1,y+1);
-				a(8,1) = 1/16 * iy(x+1,y+1);
-				b(0,8) = 1/16 * it(x+1,y+1);
+				a(8,0) = ix(x+1,y+1)/16;
+				a(8,1) = iy(x+1,y+1)/16;
+				b(0,8) = it(x+1,y+1)/16;
+
+				rowA.push_back(a);
+				rowB.push_back(b);
 
 				// Solving linear system Av = b
 
@@ -124,17 +152,76 @@ public:
 					}
 				}
 
+				// CImg<double> v(1, 9, depth, channel, initValue);
+				// v = ((a.get_transpose() * a).get_invert())*a.get_transpose()*b;
+			}
 
-				CImg<double> v(1, 9, depth, channel, initValue);
-				v = ((a.get_transpose() * a).get_invert())*a.get_transpose()*b;
+			allA.push_back(rowA);
+			allB.push_back(rowB);
+		}
 
+		double threshold = 0.1*maximumMinEigenValue;
+		for (int x = 1; x < width - 1; x++)
+		{
+			for (int y = 1; y < height - 1; y++)
+			{
+				// Choosing possible points to be tracked
+				if (minEigenValues(x,y) <= threshold)
+				{
+					// Dont choose this point
+					minEigenValues(x,y) = 0.0;
+				}
 			}
 		}
+
+		// Only staying with one chosen pixel per window
+		for (int x = 1; x < width - 1; x++)
+		{
+			for (int y = 1; y < height - 1; y++)
+			{
+				double myEigen[] = {minEigenValues(x-1,y-1), minEigenValues(x-1,y), minEigenValues(x-1,y+1), minEigenValues(x,y-1), minEigenValues(x,y), minEigenValues(x,y+1)
+					, minEigenValues(x+1,y-1), minEigenValues(x+1,y), minEigenValues(x+1,y+1)};
+
+				double * maxValue = std::max_element(myEigen, myEigen+9);
+				
+				if (*maxValue > minEigenValues(x-1,y-1))
+					minEigenValues(x-1,y-1) = 0.0;
+				if (*maxValue > minEigenValues(x-1,y))
+					minEigenValues(x-1,y) = 0.0;
+				if (*maxValue > minEigenValues(x-1,y+1))
+					minEigenValues(x-1,y+1) = 0.0;
+				if (*maxValue > minEigenValues(x,y-1))
+					minEigenValues(x,y-1) = 0.0;
+				if (*maxValue > minEigenValues(x,y))
+					minEigenValues(x,y) = 0.0;
+				if (*maxValue > minEigenValues(x,y+1))
+					minEigenValues(x,y+1) = 0.0;
+				if (*maxValue > minEigenValues(x+1,y-1))
+					minEigenValues(x+1,y-1) = 0.0;
+				if (*maxValue > minEigenValues(x+1,y))
+					minEigenValues(x+1,y) = 0.0;
+				if (*maxValue > minEigenValues(x+1,y+1))
+					minEigenValues(x+1,y+1) = 0.0;
+			}
+		}
+
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				if (minEigenValues(x,y) > 0.0)
+				{
+					// CHOSEN POINT!
+					image1(x,y,0,0) = 255.0;
+					image1(x,y,0,1) = 0.0;
+					image1(x,y,0,2) = 255.0;
+				}
+			}
+		}
+
+		image1.display();
+		// image1.save("oi.png");
 	}
-
-
-
-
 
 
 	CImg<double> calculateIt (CImg<double> image1, CImg<double> image2)
@@ -180,21 +267,21 @@ public:
 				{
 					ix(x,y) = 0.5*(image(x,y+1) - image(x,y-1));	
 				}
-				else
-				{
-					// Avoiding dealing with border
-					ix(x,y) = image(x,y);
-				}
+				// else
+				// {
+				// 	// Avoiding dealing with border
+				// 	ix(x,y) = image(x,y);
+				// }
 				
 				if ((x != 0) && (x != (width - 1)))
 				{
 					iy(x,y) = 0.5*(image(x+1,y) - image(x-1,y));
 				}
-				else
-				{
-					// Avoiding dealing with border
-					iy(x,y) = image(x,y);
-				}
+				// else
+				// {
+				// 	// Avoiding dealing with border
+				// 	iy(x,y) = image(x,y);
+				// }
 			}
 		}
 
