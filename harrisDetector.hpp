@@ -36,7 +36,7 @@ public:
 			{
 				if ((y != 0) && (y != (height - 1)))
 				{
-					ix(x,y) = image(x,y+1) - image(x,y-1);	
+					ix(x,y) = 0.5*(image(x,y+1) - image(x,y-1));	
 				}
 				else
 				{
@@ -46,7 +46,7 @@ public:
 				
 				if ((x != 0) && (x != (width - 1)))
 				{
-					iy(x,y) = image(x+1,y) - image(x-1,y);
+					iy(x,y) = 0.5*(image(x+1,y) - image(x-1,y));
 				}
 				else
 				{
