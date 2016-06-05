@@ -40,16 +40,8 @@ public:
 		CImg<double> ix = derived[0];
 		CImg<double> iy = derived[1];
 
-		// for (int i = 0; i < width; i++)
-		// {
-		// 	for (int j = 0; j < height; j++)
-		// 	{
-		// 		std::cout << ix(i,j) << std::endl;
-		// 	}
-		// }
-
 		// Calculating It, difference between image 1 and image 2
-		CImg<double> it = calculateIt(image1, image2);
+		CImg<double> it = getIt(image1, image2);
 
 		// (Ix,Iy)·(vx,vy)= −It
 		// To solve this equation, we need to use neighboor pixels
@@ -57,10 +49,42 @@ public:
 		// Creating Matrix A (Ix,Iy) and Matrix b (It) for each pixel, and solving linear system
 		// Neighboors: we are gonna get all pixels around the select pixel. And ignore borders
 		CImg<double> minEigenValues(width,height,depth,channel,0);
-		double maximumMinEigenValue = 0.0;
-		
-		std::vector<std::vector<CImg<double> >> allA;
-		std::vector<std::vector<CImg<double> >> allB;	
+
+		std::vector<std::vector<std::vector<CImg<double> >>> matrixes = getMatrixes(width, height, minEigenValues, ix, iy, it);
+		std::vector<std::vector<CImg<double> >> allA = matrixes[0];
+		std::vector<std::vector<CImg<double> >> allB = matrixes[1];
+		minEigenValues = matrixes[2][0][0];
+
+		const unsigned char white[] = { 255,255,255 };
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				if (minEigenValues(x,y) > 0.0)
+				{
+					// CHOSEN POINT! Calculating vector
+					CImg<double> v = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];
+					image1.draw_line(x, y , x + (int) v(0,0), y + (int) v(0,1), white);
+				}
+			}
+		}
+
+		image1.display();
+		// image1.save("NOME.png");
+	}
+
+
+
+	// Returns all A matrixes (for all pixels), all B matrixes and minEigenValue matrix (for each pixel,
+	// the minimum eigen value, in order to choose which pixels we are going to track)
+	std::vector<std::vector<std::vector<CImg<double> >>> getMatrixes(int width, int height, CImg<double> minEigenValues, CImg<double> ix, CImg<double> iy, CImg<double> it)
+	{
+		// Initializing return object
+		std::vector<std::vector<std::vector<CImg<double> >>> matrixes;	
+
+		std::vector<std::vector<CImg<double> >> allA; // all A matrixes
+		std::vector<std::vector<CImg<double> >> allB; // all B matrixes
+		std::vector<std::vector<CImg<double> >> modifiedMinEigenValue; // creating a vector just so we can return minEigenValue object
 
 		std::vector<CImg<double> > fixingBorderIssue;
 		fixingBorderIssue.push_back(minEigenValues);
@@ -151,9 +175,6 @@ public:
 						}
 					}
 				}
-
-				// CImg<double> v(1, 9, depth, channel, initValue);
-				// v = ((a.get_transpose() * a).get_invert())*a.get_transpose()*b;
 			}
 
 			allA.push_back(rowA);
@@ -205,26 +226,21 @@ public:
 			}
 		}
 
-		for (int x = 0; x < width; x++)
-		{
-			for (int y = 0; y < height; y++)
-			{
-				if (minEigenValues(x,y) > 0.0)
-				{
-					// CHOSEN POINT!
-					image1(x,y,0,0) = 255.0;
-					image1(x,y,0,1) = 0.0;
-					image1(x,y,0,2) = 255.0;
-				}
-			}
-		}
+		std::vector<CImg<double> > minEigenValueVector;
+		minEigenValueVector.push_back(minEigenValues);
+		modifiedMinEigenValue.push_back(minEigenValueVector);
 
-		image1.display();
-		// image1.save("oi.png");
+		matrixes.push_back(allA);
+		matrixes.push_back(allB);
+		matrixes.push_back(modifiedMinEigenValue);
+
+		return matrixes;
 	}
 
 
-	CImg<double> calculateIt (CImg<double> image1, CImg<double> image2)
+
+	// Calculate It between two images
+	CImg<double> getIt (CImg<double> image1, CImg<double> image2)
 	{
 		// Setting image`s attributes
 		int height    = image1.height();
@@ -267,21 +283,11 @@ public:
 				{
 					ix(x,y) = 0.5*(image(x,y+1) - image(x,y-1));	
 				}
-				// else
-				// {
-				// 	// Avoiding dealing with border
-				// 	ix(x,y) = image(x,y);
-				// }
 				
 				if ((x != 0) && (x != (width - 1)))
 				{
 					iy(x,y) = 0.5*(image(x+1,y) - image(x-1,y));
 				}
-				// else
-				// {
-				// 	// Avoiding dealing with border
-				// 	iy(x,y) = image(x,y);
-				// }
 			}
 		}
 
@@ -295,4 +301,5 @@ private:
 	int depth     = 1;
 	int channel   = 1;
 	int initValue = 0;
+	double maximumMinEigenValue = 0.0;
 };
