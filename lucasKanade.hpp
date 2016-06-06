@@ -64,13 +64,13 @@ public:
 				{
 					// CHOSEN POINT! Calculating vector
 					CImg<double> v = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];
-					image1.draw_line(x, y , x + (int) v(0,0), y + (int) v(0,1), white);
+					image1.draw_line(x, y ,x + (int) v(0,0),y + (int) v(0,1), white);
 				}
 			}
 		}
 
 		image1.display();
-		// image1.save("NOME.png");
+		image1.save("NOME.png");
 	}
 
 
