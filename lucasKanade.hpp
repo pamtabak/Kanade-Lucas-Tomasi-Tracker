@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>    // std::min_element, std::max_element
+#include "gaussianpyramid.hpp"
 
 using namespace cimg_library;
 
@@ -10,7 +11,7 @@ class LucasKanade
 public:
 	LucasKanade()
 	{
-
+		
 	}
 
 	~LucasKanade()
@@ -73,6 +74,30 @@ public:
 		image1.save("NOME.png");
 	}
 
+	void pyramidAlgorithm (std::vector<CImg<double> > images)
+	{
+		// Generating pyramid for each image.
+		GaussianPyramid gPyramid;
+		double filter[5] = {1.0/16, 4.0/16, 6.0/16, 4.0/16, 1.0/16};
+		gPyramid.generateFilter(filter);
+
+		std::vector<std::vector<CImg<double> >> pyramids;
+		for (int i = 0; i < images.size(); i++)
+		{
+			std::vector<CImg<double> > gaussianPyramid;
+			gaussianPyramid.push_back(images[i]);
+			
+			CImg<double> reducedImage  = images[i]; // original image
+			for (int p = 1; p < pyramidSize; p++)
+			{
+				CImg<double> imageGenerated = gPyramid.reduce(reducedImage);
+				gaussianPyramid.push_back(imageGenerated);
+				reducedImage = imageGenerated;
+			}
+
+			pyramids.push_back(gaussianPyramid);
+		}
+	}
 
 
 	// Returns all A matrixes (for all pixels), all B matrixes and minEigenValue matrix (for each pixel,
@@ -247,7 +272,7 @@ public:
 		int width     = image1.width();
 
 		// Initializing return object
-		CImg<double> it(width, height,depth,channel,initValue);
+		CImg<double> it(width, height, depth, channel, initValue);
 
 		// Iterating over each pixel
 		for (int x = 0; x < width; x++)
@@ -298,8 +323,9 @@ public:
 	}
 	
 private:
-	int depth     = 1;
-	int channel   = 1;
-	int initValue = 0;
+	int depth                   = 1;
+	int channel                 = 1;
+	int initValue               = 0;
+	int pyramidSize             = 4;
 	double maximumMinEigenValue = 0.0;
 };
