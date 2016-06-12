@@ -21,7 +21,8 @@ int main(int argc, char * argv[])
 	images.push_back(image2);
 	
 	LucasKanade lucasKanade;
-	lucasKanade.algorithm(images);
+	// lucasKanade.algorithm(images);
+	lucasKanade.pyramidAlgorithm(images);
 	// HarrisDetector harris;
 	
 	// harris.algorithm(image1);
