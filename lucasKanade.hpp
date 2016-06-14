@@ -118,6 +118,7 @@ public:
 				{
 					CImg<double> v = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];
 					flowImage(x,y,0,0) = v(0,0); // r
+					flowImage(x,y,0,1) = 0.0;    // g
 					flowImage(x,y,0,2) = v(0,1); // b
 					image1.draw_line(x, y ,x + (int) v(0,0),y + (int) v(0,1), white);
 				}
@@ -128,16 +129,14 @@ public:
 		int iteration = 0;
 		for (int p = pyramidSize - 2; p >= 0; p--)
 		{
-			// std::cout << p << std::endl;
-
 			image1 = pyramids[0][p];
 			image2 = pyramids[1][p];
 
 			height    = image1.height();
 			width     = image1.width();
 
-			minEigenValues(width,height,depth,channel,0);
-			flowImage.assign(width,height,depth,3);
+			minEigenValues.assign(width,height,depth,channel,0);
+			flowImage.assign(width,height,depth,3,0);
 			maximumMinEigenValue = 0.0;
 
 			// Calculating Ix and Iy for image1
@@ -158,48 +157,51 @@ public:
 				{
 					CImg<double> a(2,9,depth,channel,initValue);
 					CImg<double> b(1,9,depth,channel,initValue);
-					if (x > 0 && y > 0 && (x % 2 == 0) && (y % 2 == 0))
+					if (x > 0 && y > 0)
 					{
-						// checking if flow is different than 0 in this position
-						if (flowPyramid[iteration](x/2, y/2, 0,0) > 0.0 || flowPyramid[iteration](x/2, y/2, 0,2) > 0.0)
+						if ((x % 2 == 0) && (y % 2 == 0))
 						{
-							kkk++;
-							// Calculating it
-							it = getIt(ix, iy, flowPyramid[iteration](x/2, y/2, 0,0), flowPyramid[iteration](x/2, y/2, 0,2));
-							a  = applyGaussianWeightsA(ix,iy,x,y);
-							b  = applyGaussianWeightsB(it,x,y); 
-
-							CImg<double> transposedATimesA = a.get_transpose() * a;
-							// Calculating eigen values
-							CImgList<double> eigen      = transposedATimesA.get_eigen();
-							CImg<double> eigenValuesImg = eigen(0);
-							double lambda0              = eigenValuesImg(0,0);
-							double lambda1              = eigenValuesImg(0,1);
-
-							if (lambda0 > 0 && lambda1 > 0)
+							// checking if flow is different than 0 in this position
+							if (flowPyramid[iteration](x/2, y/2, 0,0) > 0.0 || flowPyramid[iteration](x/2, y/2, 0,2) > 0.0)
 							{
-								// We are only choosing pixels where both eigen values are positive
-								if (lambda0 > lambda1)
-								{
-									minEigenValues(x,y) = lambda1;
-									if (lambda1 > maximumMinEigenValue)
-									{
-										maximumMinEigenValue = lambda1;
-									}
-								}
-								else
-								{
-									minEigenValues(x,y) = lambda0;
-									if (lambda0 > maximumMinEigenValue)
-									{
-										maximumMinEigenValue = lambda0;
-									}
-								}
+								// Calculating it
+								it = getIt(image1, image2, flowPyramid[iteration](x/2, y/2, 0,0), flowPyramid[iteration](x/2, y/2, 0,2));
 							}
 						}
 						else
 						{
-							minEigenValues(x,y) = 0.0;
+							it = getIt(image1, image2);	
+						}
+
+						a  = applyGaussianWeightsA(ix,iy,x,y);
+						b  = applyGaussianWeightsB(it,x,y); 
+
+						CImg<double> transposedATimesA = a.get_transpose() * a;
+						// Calculating eigen values
+						CImgList<double> eigen      = transposedATimesA.get_eigen();
+						CImg<double> eigenValuesImg = eigen(0);
+						double lambda0              = eigenValuesImg(0,0);
+						double lambda1              = eigenValuesImg(0,1);
+
+						if (lambda0 > 0 && lambda1 > 0)
+						{
+							// We are only choosing pixels where both eigen values are positive
+							if (lambda0 > lambda1)
+							{
+								minEigenValues(x,y) = lambda1;
+								if (lambda1 > maximumMinEigenValue)
+								{
+									maximumMinEigenValue = lambda1;
+								}
+							}
+							else
+							{
+								minEigenValues(x,y) = lambda0;
+								if (lambda0 > maximumMinEigenValue)
+								{
+									maximumMinEigenValue = lambda0;
+								}
+							}
 						}
 					}
 
@@ -225,14 +227,13 @@ public:
 			}
 
 			// Only staying with one chosen pixel per window
-			// for (int x = 1; x < width - 1; x++)
-			// {
-			// 	for (int y = 1; y < height - 1; y++)
-			// 	{
-			// 		minEigenValues = reducingAmountOfPointsToTrack (minEigenValues, x, y);
-			// 	}
-			// }
-
+			for (int x = 1; x < width - 1; x++)
+			{
+				for (int y = 1; y < height - 1; y++)
+				{
+					minEigenValues = reducingAmountOfPointsToTrack (minEigenValues, x, y);
+				}
+			}
 			
 			for (int x = 0; x < width - 1; x++)
 			{
@@ -240,17 +241,15 @@ public:
 				{
 					if (x > 0 && y > 0 && (x % 2 == 0) && (y % 2 == 0))
 					{
+						// std::cout << minEigenValues(x,y) << std::endl;
 						if (minEigenValues(x,y) > 0.0)
 						{
 							CImg<double> v    = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];	
 							if (!std::isnan(v(0,0)) && !std::isnan(v(0,1)))
 							{
-								std::cout << x << "," << y << std::endl;
 								flowImage(x,y,0,0) = 2*(flowPyramid[iteration](x/2, y/2, 0,0)) + v(0,0); // r
 								flowImage(x,y,0,1) = 0.0; // g
-								// std::cout << 2*(flowPyramid[iteration](x/2, y/2, 0,2)) + v(0,1) << std::endl;
 								flowImage(x,y,0,2) = 2*(flowPyramid[iteration](x/2, y/2, 0,2)) + v(0,1); // b
-								// flowImage(x,y,0,2) = 0.0; 
 								image1.draw_line(x, y ,x + (int) flowImage(x,y,0,0),y + (int) flowImage(x,y,0,2), white);
 							}
 						}
@@ -267,7 +266,10 @@ public:
 						CImg<double> v    = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];	
 						if (!std::isnan(v(0,0)) && !std::isnan(v(0,1)))
 						{
-							image1.draw_line(x, y ,x + (int) v(0,0),y + (int) v(0,1), white);
+							flowImage(x,y,0,0) = v(0,0); // r
+							flowImage(x,y,0,1) = 0.0;    // g
+							flowImage(x,y,0,2) = v(0,1); // b
+							image1.draw_line(x, y ,x + (int) flowImage(x,y,0,0),y + (int) flowImage(x,y,0,2), white);
 						}
 					}
 				}
@@ -276,7 +278,6 @@ public:
 			flowPyramid.push_back(flowImage);
 			iteration++;
 			// std::cout << iteration << std::endl;
-			// std::cout << kkk << std::endl;
 			image1.display();
 		}
 	}
@@ -307,10 +308,6 @@ public:
 
 			for (int y = 1; y < height - 1; y++)
 			{
-				// Initializing A matrix	
-				// CImg<double> a(2, 9,depth,channel,initValue);
-				// CImg<double> b(1, 9,depth,channel,initValue);
-
 				CImg<double> a = applyGaussianWeightsA(ix,iy,x,y);
 				CImg<double> b = applyGaussianWeightsB(it,x,y);
 
@@ -585,6 +582,6 @@ private:
 	int depth                   = 1;
 	int channel                 = 1;
 	int initValue               = 0;
-	int pyramidSize             = 2;
+	int pyramidSize             = 3;
 	double maximumMinEigenValue = 0.0;
 };
