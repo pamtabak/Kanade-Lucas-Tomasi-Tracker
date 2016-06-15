@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "lucasKanade.hpp"
+#include "lucasKanade2.hpp"
 #include "matrix.hpp"
 #include "harrisdetector.hpp"
 
