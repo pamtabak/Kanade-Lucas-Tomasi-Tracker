@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "lucasKanade2.hpp"
+#include "lucasKanade.hpp"
 #include "matrix.hpp"
 #include "harrisdetector.hpp"
 
@@ -15,6 +15,8 @@ using namespace cimg_library;
 int main(int argc, char * argv[]) 
 {
 	std::vector<CImg<double> > images;
+	// CImg<double> image1("images/book1.png");
+	// CImg<double> image2("images/book2.png");
 	CImg<double> image1("images/input1.png");
 	CImg<double> image2("images/input2.png");
 	images.push_back(image1);
