@@ -17,8 +17,9 @@ int main(int argc, char * argv[])
 	std::vector<CImg<double> > images;
 	// CImg<double> image1("images/book1.png");
 	// CImg<double> image2("images/book2.png");
-	CImg<double> image1("images/input1.png");
-	CImg<double> image2("images/input2.png");
+	CImg<double> image1("images/Dumptruck/frame07.png");
+	CImg<double> image2("images/Dumptruck/frame08.png");
+	// CImg<double> image2("images/input2.png");
 	images.push_back(image1);
 	images.push_back(image2);
 	

@@ -160,6 +160,7 @@ public:
 
 		double meanX = 0.0;
 		double meanY = 0.0;
+		double times = 0;
 		for (int p = 0; p < points.size(); p++)
 		{
 			double finalX = points[p].getPoint().x + points[p].getFlow()[frame].x;
@@ -168,12 +169,14 @@ public:
 			// We need to  verify if pixel is outside the image
 
 			image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, white);
+
 			meanX += points[p].getFlow()[frame].x;
 			meanY += points[p].getFlow()[frame].y;
 		}
 
-		std::cout << meanX/points.size() << "," << meanY/points.size() << std::endl;
+		std::cout << meanX/times << "," << meanY/times << std::endl;
 
+		image1.save("testePiramide.png");
 		image1.display();
 	}
 
@@ -520,6 +523,6 @@ private:
 	int depth                   = 1;
 	int channel                 = 1;
 	int initValue               = 0;
-	int pyramidSize             = 1;
+	int pyramidSize             = 3;
 	double maximumMinEigenValue = 0.0;
 };
