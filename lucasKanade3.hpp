@@ -140,10 +140,12 @@ public:
 					points.push_back(chosenP);
 
 					// CImg<double> v = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];
-					// image1.draw_line(x, y ,x + (int) v(0,0),y + (int) v(0,1), white);
+					// image1.draw_line(x, y ,x ,y + 1, white);
 				}
 			}
 		}
+
+		// image1.display();
 
 		std::cout << points.size() << std::endl;
 
@@ -166,51 +168,53 @@ public:
 						ix                    = derived[0];
 						iy                    = derived[1];
 
-						it = getIt(pyramids[0][level], pyramids[1][level], 2*points[p].getFlow()[frame].x, 2*points[p].getFlow()[frame].y);
 
+						it = getIt(pyramids[0][level], pyramids[1][level], 2*points[p].getFlow()[frame].x, 2*points[p].getFlow()[frame].y);
+						
+						std::cout << "a" << std::endl;
 						// Calculating matrix A and B, at this point
 						matrix a = applyGaussianWeightsA(ix, iy, xOnLevel, YOnLevel);
+						std::cout << "b" << std::endl;
 						matrix b = applyGaussianWeightsB(it, xOnLevel ,YOnLevel);
 
-						// CImg<double> v = ((a.get_transpose() * a).get_invert())*a.get_transpose()*b;
-						matrix v;
 
-						// if (!std::isnan(v(0,0)) && !std::isnan(v(0,1)))
-						// {
-						// 	// just checking if everything went ok with all matrixes transformations
-						// 	points[p].setFlow(v(0,0), v(0,1), frame);
-						// }
+						// CImg<double> v = ((a.get_transpose() * a).get_invert())*a.get_transpose()*b;
+						matrix v = calculateFlow(a,b);
+						if (!std::isnan(v.m[0][0]) && !std::isnan(v.m[1][0]))
+						{
+							// just checking if everything went ok with all matrixes transformations
+							points[p].setFlow(v.m[0][0], v.m[1][0], frame);
+						}
 					}
 					else
 					{
-						// points[p].updateFlow(frame);
+						points[p].updateFlow(frame);
 					}
 				}
 				else
 				{
-					// points[p].updateFlow(0.0, 0.0, frame);
+					points[p].updateFlow(0.0, 0.0, frame);
 				}
 			}
 		}
-
 		std::cout << "testing" << std::endl;
 
-		// double meanX = 0.0;
-		// double meanY = 0.0;
-		// for (int p = 0; p < points.size(); p++)
-		// {
-		// 	double finalX = points[p].getPoint().x + points[p].getFlow()[frame].x;
-		// 	double finalY = points[p].getPoint().y + points[p].getFlow()[frame].y;
-		// 	point finalPoint = bilinearInterpolation(finalX, finalY);
-		// 	// We need to  verify if pixel is outside the image
+		double meanX = 0.0;
+		double meanY = 0.0;
+		for (int p = 0; p < points.size(); p++)
+		{
+			double finalX = points[p].getPoint().x + points[p].getFlow()[frame].x;
+			double finalY = points[p].getPoint().y + points[p].getFlow()[frame].y;
+			point finalPoint = bilinearInterpolation(finalX, finalY);
+			// We need to  verify if pixel is outside the image
 
-		// 	image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, white);
+			image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, white);
 
-		// 	meanX += points[p].getFlow()[frame].x;
-		// 	meanY += points[p].getFlow()[frame].y;
-		// }
+			meanX += points[p].getFlow()[frame].x;
+			meanY += points[p].getFlow()[frame].y;
+		}
 
-		// std::cout << meanX/points.size() << "," << meanY/points.size() << std::endl;
+		std::cout << meanX/points.size() << "," << meanY/points.size() << std::endl;
 
 		// image1.save("testePiramide.png");
 		image1.display();
@@ -231,43 +235,19 @@ public:
 				matrix b = applyGaussianWeightsB(it,x,y);
 
 				allA[x][y] = a;
-				allB[x][y] = b;
+				allB[x][y] = b;				
 
-				matrix aTa;
-				aTa.m = new double*[2];
-				aTa.m[0] = new double[2];
-				aTa.m[1] = new double[2];
+				matrix aT = getTranspose(a, 9, 2);
+				matrix aTa = multiplyMatrix(aT,a,2,2,9);
 
-				matrix aT;
-				aT.m = new double*[9];
-				for (int i = 0; i < 9; i++)
+				double lambda0 = getMinEigenValue2x2(aTa.m[0][0], aTa.m[0][1], aTa.m[1][0], aTa.m[1][1]);
+				if (lambda0 > 0)
 				{
-					aT.m[i] = new double[2];
-				}
-
-				for (int i = 0; i < 2; i++)
-				{
-					for (int j = 0; j < 9; j++)
+					minEigenValues.m[x][y] = lambda0;	
+					if (lambda0 > maximumMinEigenValue)
 					{
-						aT.m[j][i] = a.m[i][j];
-					}
-				}
-
-				for (int w = 0; w < 2; w++)
-				{
-					for (int u = 0; u < 2; u++)					
-					{
-						for(int v = 0; v < 9; v++) 
-						{
-							aTa.m[w][u] += aT.m[v][w]*a.m[u][v];
-						}
-					}
-				}
-
-				float lambda0 = getMinEigenValue2x2(aTa.m[0][0], aTa.m[0][1], aTa.m[1][0], aTa.m[1][1]);
-				if (lambda0 > maximumMinEigenValue)
-				{
-					maximumMinEigenValue = lambda0;
+						maximumMinEigenValue = lambda0;
+					}	
 				}
 
 				delete aTa.m;
@@ -298,12 +278,81 @@ public:
 		}
 	}
 
-		/**
-	 * @brief Get minimum eigen value for 2x2 matrix of the form
-	 * {{matA,matB},{matC,matD}}
-	 * 
-	 * @return Returns the matrix's minimum eigen value
-	 */
+	matrix getTranspose(matrix a, int width, int height)
+	{
+		matrix transpose;
+		transpose.m = new double*[height];
+		for (int i = 0; i < height; i++)
+		{
+			transpose.m[i] = new double[width];
+		}
+
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				transpose.m[y][x] = a.m[x][y];
+			}
+		}
+
+		return transpose;
+	}
+
+	// knowing it`s a 2x2 matrix
+	matrix getInvert (matrix a)
+	{
+		matrix invert;
+		invert.m = new double*[2];
+		invert.m[0] = new double[2];
+		invert.m[1] = new double[2];
+
+		double d = 1 / (a.m[0][0]*a.m[1][1] - a.m[0][1]*a.m[1][0]);
+
+		invert.m[0][0] = d*a.m[1][1];
+		invert.m[0][1] = - d*a.m[0][1];
+		invert.m[1][0] = - d*a.m[1][0];
+		invert.m[1][1] = d*a.m[0][0];
+
+		return invert;
+	}
+
+	// CImg<double> v = ((a.get_transpose() * a).get_invert())*a.get_transpose()*b;
+	matrix calculateFlow (matrix a, matrix b)
+	{
+		matrix aTranspose = getTranspose(a, 9, 2);
+		matrix aTa = multiplyMatrix(aTranspose,a,2,2,9);
+
+		matrix ataInvert = getInvert(aTa);
+
+		matrix ataInvertATranpose = multiplyMatrix(ataInvert, aTranspose,2,9,2);
+		matrix answer = multiplyMatrix(ataInvertATranpose, b,2,1,9);
+		
+		return answer;
+	}
+
+	matrix multiplyMatrix(matrix a, matrix b, int widthA, int heightB, int heightA)
+	{
+		matrix answer;
+		answer.m = new double*[widthA];
+		for (int i = 0; i < widthA; i++)
+		{
+			answer.m[i] = new double[heightB];
+		}
+
+		for (int x = 0; x < widthA; x++)
+		{
+			for (int y = 0; y < heightB; y++)
+			{
+				for (int z = 0; z < heightA; z++)
+				{
+					answer.m[x][y] += a.m[x][z]*b.m[z][y];
+				}
+			}
+		}
+
+		return answer;
+	}
+
 	double getMinEigenValue2x2(double& matA, double& matB, double& matC, double& matD) {
 	    double b = matA+matD;
 	    double c = matA*matD - matB*matC;
@@ -357,36 +406,40 @@ public:
 	matrix applyGaussianWeightsA (matrix ix, matrix iy, int x, int y)
 	{	
 		matrix a;
-		a.m = new double*[2];
-		a.m[0] = new double[9];
+		a.m = new double*[9];
+		for (int i = 0; i < 9; i++)
+		{
+			a.m[i] = new double[2];	
+		}
+		
 		a.m[1] = new double[9];
 
 		a.m[0][0] = ix.m[x-1][y-1]/16;
-		a.m[1][0] = iy.m[x-1][y-1]/16;
+		a.m[0][1] = iy.m[x-1][y-1]/16;
 
-		a.m[0][1] = 2 * ix.m[x][y-1]/16;
+		a.m[1][0] = 2 * ix.m[x][y-1]/16;
 		a.m[1][1] = 2 * iy.m[x][y-1]/16;
 
-		a.m[0][2] = ix.m[x+1][y-1]/16;
-		a.m[1][2] = iy.m[x+1][y-1]/16;
+		a.m[2][0] = ix.m[x+1][y-1]/16;
+		a.m[2][1] = iy.m[x+1][y-1]/16;
 
-		a.m[0][3] = 2 * ix.m[x-1][y]/16;
-		a.m[1][3] = 2 * iy.m[x-1][y]/16;
+		a.m[3][0] = 2 * ix.m[x-1][y]/16;
+		a.m[3][1] = 2 * iy.m[x-1][y]/16;
 
-		a.m[0][4] = 4 * ix.m[x][y]/16; // current pixel
-		a.m[1][4] = 4 * iy.m[x][y]/16; // current pixel
+		a.m[4][0] = 4 * ix.m[x][y]/16; // current pixel
+		a.m[4][1] = 4 * iy.m[x][y]/16; // current pixel
 
-		a.m[0][5] = 2 * ix.m[x+1][y]/16;
-		a.m[1][5] = 2 * iy.m[x+1][y]/16;
+		a.m[5][0] = 2 * ix.m[x+1][y]/16;
+		a.m[5][1] = 2 * iy.m[x+1][y]/16;
 
-		a.m[0][6] = ix.m[x-1][y+1]/16;
-		a.m[1][6] = iy.m[x-1][y+1]/16;
+		a.m[6][0] = ix.m[x-1][y+1]/16;
+		a.m[6][1] = iy.m[x-1][y+1]/16;
 
-		a.m[0][7] = 2 * ix.m[x][y+1]/16;
-		a.m[1][7] = 2 * iy.m[x][y+1]/16;
+		a.m[7][0] = 2 * ix.m[x][y+1]/16;
+		a.m[7][1] = 2 * iy.m[x][y+1]/16;
 
-		a.m[0][8] = ix.m[x+1][y+1]/16;
-		a.m[1][8] = iy.m[x+1][y+1]/16;
+		a.m[8][0] = ix.m[x+1][y+1]/16;
+		a.m[8][1] = iy.m[x+1][y+1]/16;
 
 		return a;
 	}
@@ -395,26 +448,30 @@ public:
 	{
 		// CImg<double> b(1, 9,depth,channel,initValue);
 		matrix b;
-		b.m = new double*[1];
-		b.m[0] = new double[9];
+		b.m = new double*[9];
+		for (int i = 0; i < 9; i++)
+		{
+			b.m[i] = new double[1];	
+		}
+		
 
 		b.m[0][0] = it.m[x-1][y-1]/16;
 
-		b.m[0][1] = 2 * it.m[x][y-1]/16;
+		b.m[1][0] = 2 * it.m[x][y-1]/16;
 
-		b.m[0][2] = it.m[x+1][y-1]/16;
+		b.m[2][0] = it.m[x+1][y-1]/16;
 
-		b.m[0][3] = 2 * it.m[x-1][y]/16;
+		b.m[3][0] = 2 * it.m[x-1][y]/16;
 
-		b.m[0][4] = 4 * it.m[x][y]/16; // current pixel
+		b.m[4][0] = 4 * it.m[x][y]/16; // current pixel
 
-		b.m[0][5] = 2 * it.m[x+1][y]/16;
+		b.m[5][0] = 2 * it.m[x+1][y]/16;
 
-		b.m[0][6] = it.m[x-1][y+1]/16;
+		b.m[6][0] = it.m[x-1][y+1]/16;
 
-		b.m[0][7] = 2 * it.m[x][y+1]/16;
+		b.m[7][0] = 2 * it.m[x][y+1]/16;
 
-		b.m[0][8] = it.m[x+1][y+1]/16;
+		b.m[8][0] = it.m[x+1][y+1]/16;
 
 		return b;
 	}
@@ -559,15 +616,23 @@ public:
 
 		ix.m = new double*[width];
 		iy.m = new double*[width];
-		
-		for (int x = 1; x < width - 1; x++)
+
+		for (int x = 0; x < width; x++)
 		{
 			ix.m[x] = new double[height];
 			iy.m[x] = new double[height];
-			for (int y = 1; y < height - 1; y++)
+			for (int y = 0; y < height; y++)
 			{
-				ix.m[x][y] = 0.5 * (image(x+1, y) - image(x-1, y));
-				ix.m[x][y] = 0.5 * (image(x, y+1) - image(x, y-1));
+				if (x == 0 || x == (width - 1) || y == 0 || y == (height - 1))
+				{
+					ix.m[x][y] = 0.0;
+					iy.m[x][y] = 0.0;
+				}
+				else
+				{
+					ix.m[x][y] = 0.5 * (image(x+1, y) - image(x-1, y));	
+					iy.m[x][y] = 0.5 * (image(x, y+1) - image(x, y-1));
+				}
 			}
 		}
 
@@ -581,7 +646,7 @@ private:
 	int depth                   = 1;
 	int channel                 = 1;
 	int initValue               = 0;
-	int pyramidSize             = 1;
+	int pyramidSize             = 3;
 	double maximumMinEigenValue = 0.0;
 	matrix ** allA;
 	matrix ** allB;
