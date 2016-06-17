@@ -7,6 +7,12 @@
 
 using namespace cimg_library;
 
+typedef struct matrix
+{
+	double **m;
+} matrix;
+
+
 class LucasKanade 
 {
 public:
@@ -17,49 +23,61 @@ public:
 
 	~LucasKanade()
 	{
-
+		delete allA;
+		delete allB;
 	}
 
-	void algorithm (std::vector<CImg<double> > images)
+	void initArrays(int width, int height)
 	{
-		CImg<double> image1 = images[0];
-		CImg<double> image2 = images[1];
+		allA = new matrix*[width];
+		allB = new matrix*[width];
 
-		int height    = image1.height();
-		int width     = image1.width();
-
-		std::vector<CImg<double> > derived = derive(image1);
-		CImg<double> ix = derived[0];
-		CImg<double> iy = derived[1];
-
-		CImg<double> it = getIt(image1, image2);
-
-		CImg<double> minEigenValues(width,height,depth,channel,0);
-		
-		std::vector<std::vector<std::vector<CImg<double> >>> matrixes = getMatrixes(width, height, minEigenValues, ix, iy, it);
-		std::vector<std::vector<CImg<double> >> allA = matrixes[0];
-		std::vector<std::vector<CImg<double> >> allB = matrixes[1];
-		minEigenValues = matrixes[2][0][0];
-
-		const unsigned char white[] = { 255,255,255 };
-		double xf = 0.0;
-		double yf = 0.0;
-		int times = 0;
-		for (int x = 1; x < width - 1; x++)
+		for (int i = 0; i < width; i++)
 		{
-			for (int y = 1; y < height - 1; y++)
-			{
-				if (minEigenValues(x,y) > 0.0)
-				{
-					// CHOSEN POINT! Calculating vector
-					CImg<double> v = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];
-					image1.draw_line(x, y ,x + (int) v(0,0),y + (int) v(0,1), white);
-				}
-			}
+			allA[i] = new matrix[height];
+			allB[i] = new matrix[height];
 		}
-
-		image1.display();
 	}
+
+	// void algorithm (std::vector<CImg<double> > images)
+	// {
+	// 	CImg<double> image1 = images[0];
+	// 	CImg<double> image2 = images[1];
+
+	// 	int height    = image1.height();
+	// 	int width     = image1.width();
+
+	// 	std::vector<CImg<double> > derived = derive(image1);
+	// 	CImg<double> ix = derived[0];
+	// 	CImg<double> iy = derived[1];
+
+	// 	CImg<double> it = getIt(image1, image2);
+
+	// 	minEigenValues.assign(width,height,depth,channel,0);
+		
+	// 	initArrays(width, height);
+
+	// 	getMatrixes(width, height, ix, iy, it);
+
+	// 	const unsigned char white[] = { 255,255,255 };
+	// 	double xf = 0.0;
+	// 	double yf = 0.0;
+	// 	int times = 0;
+	// 	for (int x = 1; x < width - 1; x++)
+	// 	{
+	// 		for (int y = 1; y < height - 1; y++)
+	// 		{
+	// 			if (minEigenValues(x,y) > 0.0)
+	// 			{
+	// 				// CHOSEN POINT! Calculating vector
+	// 				CImg<double> v = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];
+	// 				image1.draw_line(x, y ,x + (int) v(0,0),y + (int) v(0,1), white);
+	// 			}
+	// 		}
+	// 	}
+
+	// 	image1.display();
+	// }
 
 	void pyramidAlgorithm (std::vector<CImg<double> > images)
 	{
@@ -80,18 +98,28 @@ public:
 		const int width     = image1.width();
 
 		// Calculating Ix and Iy for image1
-		std::vector<CImg<double> > derived = derive(image1);
-		CImg<double> ix                    = derived[0];
-		CImg<double> iy                    = derived[1];
+		std::vector<matrix> derived = derive(image1);
+		matrix ix                    = derived[0];
+		matrix iy                    = derived[1];
 
 		// Calculating It, difference between image 1 and image 2
-		CImg<double> it = getIt(image1, image2); // We are not actually using this information at this point
+		matrix it = getIt(image1, image2); // We are not actually using this information at this point
 
-		CImg<double> minEigenValues(width,height,depth,channel,0); // Matrix that helps us decide which points should be chosen
+		// minEigenValues.assign(width,height,depth,channel,0); // Matrix that helps us decide which points should be chosen
+		minEigenValues.m = new double*[width];
+		for (int i = 0; i < width; i++)
+		{
+			minEigenValues.m[i] = new double[height];
+			for (int j = 0; j < height; j++)
+			{
+				minEigenValues.m[i][j] = 0.0;
+			}
+		}
 
+		initArrays(width, height);
 
 		std::cout << "oie" << std::endl;
-		getMatrixes(width, height, minEigenValues, ix, iy, it);
+		getMatrixes(width, height, ix, iy, it);
 		// std::vector<std::vector<std::vector<CImg<double> >>> matrixes = getMatrixes(width, height, &minEigenValues, ix, iy, it, &allA, &allB);
 		// std::vector<std::vector<CImg<double> >> allA                  = matrixes[0];
 		// std::vector<std::vector<CImg<double> >> allB                  = matrixes[1];
@@ -103,7 +131,7 @@ public:
 		{
 			for (int x = 1; x < width - 1; x++)
 			{
-				if (minEigenValues(x,y) > 0.0)
+				if (minEigenValues.m[x][y] > 0.0)
 				{
 					// choose this point
 					ChosenPoint chosenP;
@@ -116,6 +144,8 @@ public:
 				}
 			}
 		}
+
+		std::cout << points.size() << std::endl;
 
 		// Once the points are choosen from the original image, we build the pyramid
 		for (int level = pyramidSize - 1; level >= 0; level--)
@@ -132,196 +162,117 @@ public:
 				{
 					if (level == pyramidSize - 1)
 					{
-						std::vector<CImg<double> > derived = derive(pyramids[0][level]);
+						std::vector<matrix> derived = derive(pyramids[0][level]);
 						ix                    = derived[0];
 						iy                    = derived[1];
 
 						it = getIt(pyramids[0][level], pyramids[1][level], 2*points[p].getFlow()[frame].x, 2*points[p].getFlow()[frame].y);
 
 						// Calculating matrix A and B, at this point
-						CImg<double> a = applyGaussianWeightsA(ix, iy, xOnLevel, YOnLevel);
-						CImg<double> b = applyGaussianWeightsB(it, xOnLevel ,YOnLevel);
+						matrix a = applyGaussianWeightsA(ix, iy, xOnLevel, YOnLevel);
+						matrix b = applyGaussianWeightsB(it, xOnLevel ,YOnLevel);
 
-						CImg<double> v = ((a.get_transpose() * a).get_invert())*a.get_transpose()*b;
+						// CImg<double> v = ((a.get_transpose() * a).get_invert())*a.get_transpose()*b;
+						matrix v;
 
-						if (!std::isnan(v(0,0)) && !std::isnan(v(0,1)))
-						{
-							// just checking if everything went ok with all matrixes transformations
-							points[p].setFlow(v(0,0), v(0,1), frame);
-						}
+						// if (!std::isnan(v(0,0)) && !std::isnan(v(0,1)))
+						// {
+						// 	// just checking if everything went ok with all matrixes transformations
+						// 	points[p].setFlow(v(0,0), v(0,1), frame);
+						// }
 					}
 					else
 					{
-						points[p].updateFlow(frame);
+						// points[p].updateFlow(frame);
 					}
 				}
 				else
 				{
-					points[p].updateFlow(0.0, 0.0, frame);
+					// points[p].updateFlow(0.0, 0.0, frame);
 				}
 			}
 		}
 
-		double meanX = 0.0;
-		double meanY = 0.0;
-		for (int p = 0; p < points.size(); p++)
-		{
-			double finalX = points[p].getPoint().x + points[p].getFlow()[frame].x;
-			double finalY = points[p].getPoint().y + points[p].getFlow()[frame].y;
-			point finalPoint = bilinearInterpolation(finalX, finalY);
-			// We need to  verify if pixel is outside the image
+		std::cout << "testing" << std::endl;
 
-			image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, white);
+		// double meanX = 0.0;
+		// double meanY = 0.0;
+		// for (int p = 0; p < points.size(); p++)
+		// {
+		// 	double finalX = points[p].getPoint().x + points[p].getFlow()[frame].x;
+		// 	double finalY = points[p].getPoint().y + points[p].getFlow()[frame].y;
+		// 	point finalPoint = bilinearInterpolation(finalX, finalY);
+		// 	// We need to  verify if pixel is outside the image
 
-			meanX += points[p].getFlow()[frame].x;
-			meanY += points[p].getFlow()[frame].y;
-		}
+		// 	image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, white);
 
-		std::cout << meanX/points.size() << "," << meanY/points.size() << std::endl;
+		// 	meanX += points[p].getFlow()[frame].x;
+		// 	meanY += points[p].getFlow()[frame].y;
+		// }
+
+		// std::cout << meanX/points.size() << "," << meanY/points.size() << std::endl;
 
 		// image1.save("testePiramide.png");
 		image1.display();
+
+		delete minEigenValues.m;
+		delete ix.m;
+		delete iy.m;
+		delete it.m;
 	}
 
-	CImg<double>* getMatrixes(const int width,const int height, CImg<double> minEigenValues, CImg<double> ix, CImg<double> iy, CImg<double> it)
+	void getMatrixes(const int width,const int height, matrix ix, matrix iy, matrix it)
 	{
-		CImg<double> matrixes[3];
-
-		CImg<double> allA[width][height];
-		CImg<double> allB[width][height];
-
 		for (int x = 1; x < width - 1; x++)
 		{
 			for (int y = 1; y < height - 1; y++)
 			{
-				CImg<double> a = applyGaussianWeightsA(ix,iy,x,y);
-				CImg<double> b = applyGaussianWeightsB(it,x,y);
+				matrix a = applyGaussianWeightsA(ix,iy,x,y);
+				matrix b = applyGaussianWeightsB(it,x,y);
 
 				allA[x][y] = a;
 				allB[x][y] = b;
 
-				CImg<double> transposedATimesA = a.get_transpose() * a;
-				// Calculating eigen values
-				CImgList<double> eigen      = transposedATimesA.get_eigen();
-				CImg<double> eigenValuesImg = eigen(0);
-				double lambda0              = eigenValuesImg(0,0);
-				double lambda1              = eigenValuesImg(0,1);
+				matrix aTa;
+				aTa.m = new double*[2];
+				aTa.m[0] = new double[2];
+				aTa.m[1] = new double[2];
 
-				if (lambda0 > 0 && lambda1 > 0)
+				matrix aT;
+				aT.m = new double*[9];
+				for (int i = 0; i < 9; i++)
 				{
-					// We are only choosing pixels where both eigen values are positive
-					if (lambda0 > lambda1)
+					aT.m[i] = new double[2];
+				}
+
+				for (int i = 0; i < 2; i++)
+				{
+					for (int j = 0; j < 9; j++)
 					{
-						minEigenValues(x,y) = lambda1;
-						if (lambda1 > maximumMinEigenValue)
-						{
-							maximumMinEigenValue = lambda1;
-						}
+						aT.m[j][i] = a.m[i][j];
 					}
-					else
+				}
+
+				for (int w = 0; w < 2; w++)
+				{
+					for (int u = 0; u < 2; u++)					
 					{
-						minEigenValues(x,y) = lambda0;
-						if (lambda0 > maximumMinEigenValue)
+						for(int v = 0; v < 9; v++) 
 						{
-							maximumMinEigenValue = lambda0;
+							aTa.m[w][u] += aT.m[v][w]*a.m[u][v];
 						}
 					}
 				}
-			}
-		}
 
-		// double threshold = 0.1*maximumMinEigenValue;
-		// for (int x = 1; x < width - 1; x++)
-		// {
-		// 	for (int y = 1; y < height - 1; y++)
-		// 	{
-		// 		// Choosing possible points to be tracked
-		// 		if (minEigenValues(x,y) <= threshold)
-		// 		{
-		// 			minEigenValues(x,y) = 0.0;
-		// 		}
-		// 	}
-		// }
-
-		// // // Only staying with one chosen pixel per window
-		// for (int x = 1; x < width - 1; x++)
-		// {
-		// 	for (int y = 1; y < height - 1; y++)
-		// 	{
-		// 		minEigenValues = reducingAmountOfPointsToTrack (minEigenValues, x, y);
-		// 	}
-		// }
-
-		matrixes[0] = allA;
-		matrixes[1] = allB;
-		matrixes[2] = minEigenValues;
-
-		return matrixes;
-	}
-
-	// Returns all A matrixes (for all pixels), all B matrixes and minEigenValue matrix (for each pixel,
-	// the minimum eigen value, in order to choose which pixels we are going to track)
-	std::vector<std::vector<std::vector<CImg<double> >>> getMatrixes(int width, int height, CImg<double> minEigenValues, CImg<double> ix, CImg<double> iy, CImg<double> it)
-	{
-		// Initializing return object
-		std::vector<std::vector<std::vector<CImg<double> >>> matrixes;	
-
-		std::vector<std::vector<CImg<double> >> allA; // all A matrixes
-		std::vector<std::vector<CImg<double> >> allB; // all B matrixes
-		std::vector<std::vector<CImg<double> >> modifiedMinEigenValue; // creating a vector just so we can return minEigenValue object
-
-		std::vector<CImg<double> > fixingBorderIssue;
-		fixingBorderIssue.push_back(minEigenValues);
-		allA.push_back(fixingBorderIssue);
-		allB.push_back(fixingBorderIssue);
-
-		for (int x = 1; x < width - 1; x++)
-		{
-			std::vector<CImg<double> > rowA;
-			std::vector<CImg<double> > rowB;
-
-			rowA.push_back(minEigenValues);
-			rowB.push_back(minEigenValues);
-
-			for (int y = 1; y < height - 1; y++)
-			{
-				CImg<double> a = applyGaussianWeightsA(ix,iy,x,y);
-				CImg<double> b = applyGaussianWeightsB(it,x,y);
-
-				rowA.push_back(a);
-				rowB.push_back(b);
-
-				CImg<double> transposedATimesA = a.get_transpose() * a;
-				// Calculating eigen values
-				CImgList<double> eigen      = transposedATimesA.get_eigen();
-				CImg<double> eigenValuesImg = eigen(0);
-				double lambda0              = eigenValuesImg(0,0);
-				double lambda1              = eigenValuesImg(0,1);
-
-				if (lambda0 > 0 && lambda1 > 0)
+				float lambda0 = getMinEigenValue2x2(aTa.m[0][0], aTa.m[0][1], aTa.m[1][0], aTa.m[1][1]);
+				if (lambda0 > maximumMinEigenValue)
 				{
-					// We are only choosing pixels where both eigen values are positive
-					if (lambda0 > lambda1)
-					{
-						minEigenValues(x,y) = lambda1;
-						if (lambda1 > maximumMinEigenValue)
-						{
-							maximumMinEigenValue = lambda1;
-						}
-					}
-					else
-					{
-						minEigenValues(x,y) = lambda0;
-						if (lambda0 > maximumMinEigenValue)
-						{
-							maximumMinEigenValue = lambda0;
-						}
-					}
+					maximumMinEigenValue = lambda0;
 				}
-			}
 
-			allA.push_back(rowA);
-			allB.push_back(rowB);
+				delete aTa.m;
+				delete aT.m;
+			}
 		}
 
 		double threshold = 0.1*maximumMinEigenValue;
@@ -330,9 +281,9 @@ public:
 			for (int y = 1; y < height - 1; y++)
 			{
 				// Choosing possible points to be tracked
-				if (minEigenValues(x,y) <= threshold)
+				if (minEigenValues.m[x][y] <= threshold)
 				{
-					minEigenValues(x,y) = 0.0;
+					minEigenValues.m[x][y] = 0.0;
 				}
 			}
 		}
@@ -342,106 +293,128 @@ public:
 		{
 			for (int y = 1; y < height - 1; y++)
 			{
-				minEigenValues = reducingAmountOfPointsToTrack (minEigenValues, x, y);
+				reducingAmountOfPointsToTrack (x, y);
 			}
 		}
-
-		std::vector<CImg<double> > minEigenValueVector;
-		minEigenValueVector.push_back(minEigenValues);
-		modifiedMinEigenValue.push_back(minEigenValueVector);
-
-		matrixes.push_back(allA);
-		matrixes.push_back(allB);
-		matrixes.push_back(modifiedMinEigenValue);
-
-		return matrixes;
 	}
 
-	CImg<double> reducingAmountOfPointsToTrack (CImg<double> minEigenValues, int x, int y)
+		/**
+	 * @brief Get minimum eigen value for 2x2 matrix of the form
+	 * {{matA,matB},{matC,matD}}
+	 * 
+	 * @return Returns the matrix's minimum eigen value
+	 */
+	double getMinEigenValue2x2(double& matA, double& matB, double& matC, double& matD) {
+	    double b = matA+matD;
+	    double c = matA*matD - matB*matC;
+
+	    //b^2 - 4ac, where a=1.0
+	    const double delta = b*b - 4*c;
+	    if (delta < 0)
+	        return -1.0;
+
+	    double ev1 = 0.0;
+	    double ev2 = 0.0;
+	    double sqrtDelta = std::sqrt(delta);
+	    
+	    ev1 = b - sqrtDelta;
+	    ev2 = b + sqrtDelta;
+
+	    ev1 *= 0.5;
+	    ev2 *= 0.5;
+
+	    return std::min(ev1, ev2);
+	}
+
+	void reducingAmountOfPointsToTrack (int x, int y)
 	{	
-		double myEigen[] = {minEigenValues(x-1,y-1), minEigenValues(x-1,y), minEigenValues(x-1,y+1), minEigenValues(x,y-1), minEigenValues(x,y), minEigenValues(x,y+1)
-			, minEigenValues(x+1,y-1), minEigenValues(x+1,y), minEigenValues(x+1,y+1)};
+		double myEigen[] = {minEigenValues.m[x-1][y-1], minEigenValues.m[x-1][y], minEigenValues.m[x-1][y+1], 
+			minEigenValues.m[x][y-1], minEigenValues.m[x][y], minEigenValues.m[x][y+1],
+			minEigenValues.m[x+1][y-1], minEigenValues.m[x+1][y], minEigenValues.m[x+1][y+1]};
 
 		double * maxValue = std::max_element(myEigen, myEigen+9);
 		
-		if (*maxValue > minEigenValues(x-1,y-1))
-			minEigenValues(x-1,y-1) = 0.0;
-		if (*maxValue > minEigenValues(x-1,y))
-			minEigenValues(x-1,y) = 0.0;
-		if (*maxValue > minEigenValues(x-1,y+1))
-			minEigenValues(x-1,y+1) = 0.0;
-		if (*maxValue > minEigenValues(x,y-1))
-			minEigenValues(x,y-1) = 0.0;
-		if (*maxValue > minEigenValues(x,y))
-			minEigenValues(x,y) = 0.0;
-		if (*maxValue > minEigenValues(x,y+1))
-			minEigenValues(x,y+1) = 0.0;
-		if (*maxValue > minEigenValues(x+1,y-1))
-			minEigenValues(x+1,y-1) = 0.0;
-		if (*maxValue > minEigenValues(x+1,y))
-			minEigenValues(x+1,y) = 0.0;
-		if (*maxValue > minEigenValues(x+1,y+1))
-			minEigenValues(x+1,y+1) = 0.0;
-
-		return minEigenValues;
+		if (*maxValue > minEigenValues.m[x-1][y-1])
+			minEigenValues.m[x-1][y-1] = 0.0;
+		if (*maxValue > minEigenValues.m[x-1][y])
+			minEigenValues.m[x-1][y] = 0.0;
+		if (*maxValue > minEigenValues.m[x-1][y+1])
+			minEigenValues.m[x-1][y+1] = 0.0;
+		if (*maxValue > minEigenValues.m[x][y-1])
+			minEigenValues.m[x][y-1] = 0.0;
+		if (*maxValue > minEigenValues.m[x][y])
+			minEigenValues.m[x][y] = 0.0;
+		if (*maxValue > minEigenValues.m[x][y+1])
+			minEigenValues.m[x][y+1] = 0.0;
+		if (*maxValue > minEigenValues.m[x+1][y-1])
+			minEigenValues.m[x+1][y-1] = 0.0;
+		if (*maxValue > minEigenValues.m[x+1][y])
+			minEigenValues.m[x+1][y] = 0.0;
+		if (*maxValue > minEigenValues.m[x+1][y+1])
+			minEigenValues.m[x+1][y+1] = 0.0;
 	}
 
+	matrix applyGaussianWeightsA (matrix ix, matrix iy, int x, int y)
+	{	
+		matrix a;
+		a.m = new double*[2];
+		a.m[0] = new double[9];
+		a.m[1] = new double[9];
 
-	CImg<double> applyGaussianWeightsA (CImg<double> ix, CImg<double> iy, int x, int y)
-	{
-		CImg<double> a(2, 9,depth,channel,initValue);
+		a.m[0][0] = ix.m[x-1][y-1]/16;
+		a.m[1][0] = iy.m[x-1][y-1]/16;
 
-		a(0,0) = ix(x-1,y-1)/16;
-		a(1,0) = iy(x-1,y-1)/16;
+		a.m[0][1] = 2 * ix.m[x][y-1]/16;
+		a.m[1][1] = 2 * iy.m[x][y-1]/16;
 
-		a(0,1) = 2 * ix(x,y-1)/16;
-		a(1,1) = 2 * iy(x,y-1)/16;
+		a.m[0][2] = ix.m[x+1][y-1]/16;
+		a.m[1][2] = iy.m[x+1][y-1]/16;
 
-		a(0,2) = ix(x+1,y-1)/16;
-		a(1,2) = iy(x+1,y-1)/16;
+		a.m[0][3] = 2 * ix.m[x-1][y]/16;
+		a.m[1][3] = 2 * iy.m[x-1][y]/16;
 
-		a(0,3) = 2 * ix(x-1,y)/16;
-		a(1,3) = 2 * iy(x-1,y)/16;
+		a.m[0][4] = 4 * ix.m[x][y]/16; // current pixel
+		a.m[1][4] = 4 * iy.m[x][y]/16; // current pixel
 
-		a(0,4) = 4 * ix(x,y)/16; // current pixel
-		a(1,4) = 4 * iy(x,y)/16; // current pixel
+		a.m[0][5] = 2 * ix.m[x+1][y]/16;
+		a.m[1][5] = 2 * iy.m[x+1][y]/16;
 
-		a(0,5) = 2 * ix(x+1,y)/16;
-		a(1,5) = 2 * iy(x+1,y)/16;
+		a.m[0][6] = ix.m[x-1][y+1]/16;
+		a.m[1][6] = iy.m[x-1][y+1]/16;
 
-		a(0,6) = ix(x-1,y+1)/16;
-		a(1,6) = iy(x-1,y+1)/16;
+		a.m[0][7] = 2 * ix.m[x][y+1]/16;
+		a.m[1][7] = 2 * iy.m[x][y+1]/16;
 
-		a(0,7) = 2 * ix(x,y+1)/16;
-		a(1,7) = 2 * iy(x,y+1)/16;
-
-		a(0,8) = ix(x+1,y+1)/16;
-		a(1,8) = iy(x+1,y+1)/16;
+		a.m[0][8] = ix.m[x+1][y+1]/16;
+		a.m[1][8] = iy.m[x+1][y+1]/16;
 
 		return a;
 	}
 
-	CImg<double> applyGaussianWeightsB (CImg<double> it, int x, int y)
+	matrix applyGaussianWeightsB (matrix it, int x, int y)
 	{
-		CImg<double> b(1, 9,depth,channel,initValue);
+		// CImg<double> b(1, 9,depth,channel,initValue);
+		matrix b;
+		b.m = new double*[1];
+		b.m[0] = new double[9];
 
-		b(0,0) = it(x-1,y-1)/16;
+		b.m[0][0] = it.m[x-1][y-1]/16;
 
-		b(0,1) = 2 * it(x,y-1)/16;
+		b.m[0][1] = 2 * it.m[x][y-1]/16;
 
-		b(0,2) = it(x+1,y-1)/16;
+		b.m[0][2] = it.m[x+1][y-1]/16;
 
-		b(0,3) = 2 * it(x-1,y)/16;
+		b.m[0][3] = 2 * it.m[x-1][y]/16;
 
-		b(0,4) = 4 * it(x,y)/16; // current pixel
+		b.m[0][4] = 4 * it.m[x][y]/16; // current pixel
 
-		b(0,5) = 2 * it(x+1,y)/16;
+		b.m[0][5] = 2 * it.m[x+1][y]/16;
 
-		b(0,6) = it(x-1,y+1)/16;
+		b.m[0][6] = it.m[x-1][y+1]/16;
 
-		b(0,7) = 2 * it(x,y+1)/16;
+		b.m[0][7] = 2 * it.m[x][y+1]/16;
 
-		b(0,8) = it(x+1,y+1)/16;
+		b.m[0][8] = it.m[x+1][y+1]/16;
 
 		return b;
 	}
@@ -475,21 +448,23 @@ public:
 	}
 
 	// Calculate It between two images
-	CImg<double> getIt (CImg<double> image1, CImg<double> image2)
+	matrix getIt (CImg<double> image1, CImg<double> image2)
 	{
 		// Setting image`s attributes
 		int height    = image1.height();
 		int width     = image1.width();
 
 		// Initializing return object
-		CImg<double> it(width, height, depth, channel, initValue);
+		matrix it;
+		it.m = new double*[width];
 
 		// Iterating over each pixel
 		for (int x = 0; x < width; x++)
 		{
+			it.m[x] = new double[height];
 			for (int y = 0; y < height; y++)
 			{
-				it(x,y) = image2(x,y) - image1(x,y);
+				it.m[x][y] = image2(x,y) - image1(x,y);
 			}
 		}
 
@@ -497,19 +472,21 @@ public:
 	}
 	
 	// Calculate It between two images, when working with pyramids
-	CImg<double> getIt (CImg<double> image1, CImg<double> image2, double xFlow, double yFlow)
+	matrix getIt (CImg<double> image1, CImg<double> image2, double xFlow, double yFlow)
 	{
 		// Setting image`s attributes
 		int height    = image1.height();
 		int width     = image1.width();
 
 		// Initializing return object
-		CImg<double> it(width, height, depth, channel, initValue);
+		matrix it;
+		it.m = new double*[width];
 
 		// Iterating over each pixel
 		double newX, newY;
 		for (int x = 0; x < width; x++)
 		{
+			it.m[x] = new double[height];
 			for (int y = 0; y < height; y++)
 			{
 				newX = x + xFlow;
@@ -530,7 +507,7 @@ public:
 					newPoint.y--;
 				if (newPoint.x == width)
 					newPoint.x--;
-				it(x,y) = image2(newPoint.x, newPoint.y) - image1(x,y);
+				it.m[x][y] = image2(newPoint.x, newPoint.y) - image1(x,y);
 			}
 		}
 
@@ -568,24 +545,29 @@ public:
 	}
 
 	// Calculate image`s derived
-	std::vector<CImg<double> > derive (CImg<double> image)
+	std::vector<matrix> derive (CImg<double> image)
 	{
 		// Initilazing return object		
-		std::vector<CImg<double> > derived;
+		std::vector<matrix > derived;
 
 		// Setting image`s attributes
 		int height    = image.height();
 		int width     = image.width();
 
-		CImg<double> ix(width, height,depth,channel,initValue);
-		CImg<double> iy(width, height,depth,channel,initValue);
+		matrix ix;
+		matrix iy;
+
+		ix.m = new double*[width];
+		iy.m = new double*[width];
 		
 		for (int x = 1; x < width - 1; x++)
 		{
+			ix.m[x] = new double[height];
+			iy.m[x] = new double[height];
 			for (int y = 1; y < height - 1; y++)
 			{
-				ix (x,y,0) = 0.5 * (image(x+1, y) - image(x-1, y));
-				iy (x,y,0) = 0.5 * (image(x, y+1) - image(x, y-1));
+				ix.m[x][y] = 0.5 * (image(x+1, y) - image(x-1, y));
+				ix.m[x][y] = 0.5 * (image(x, y+1) - image(x, y-1));
 			}
 		}
 
@@ -601,4 +583,7 @@ private:
 	int initValue               = 0;
 	int pyramidSize             = 1;
 	double maximumMinEigenValue = 0.0;
+	matrix ** allA;
+	matrix ** allB;
+	matrix minEigenValues;
 };

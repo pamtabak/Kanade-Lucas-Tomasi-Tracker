@@ -1,38 +1,48 @@
-#include <iostream>
-#include <vector>
+// #include <iostream>
+// #include <vector>
 
-using namespace std;
+// using namespace std;
 
-class Matrix
-{
-public:
-	Matrix()
-	{
+// class Matrix
+// {
+// public:
+// 	Matrix()
+// 	{
 
-	}
-	~Matrix()
-	{
+// 	}
+// 	~Matrix()
+// 	{
+// 		delete matrix;
+// 	}
 
-	}
+// 	void initializeMatrix(int x, int y)
+// 	{
+// 		matrix = new double*[x];
+// 		for (int i = 0; i < x; i++)
+// 		{
+// 			matrix[i] = new double[y];
+// 		}
+// 	}
 
-	vector<vector<double> > getTransposedMatrix (vector<vector<double> > matrix)
-	{
-		// Initializing return object
-		vector<vector<double> > transposedMatrix;
+// 	vector<vector<double> > getTransposedMatrix (vector<vector<double> > matrix)
+// 	{
+// 		// Initializing return object
+// 		vector<vector<double> > transposedMatrix;
 		
-		// Iterating over each column
-		for (int j = 0; j < matrix[0].size(); j++)
-		{
-			// Iterating over each row
-			vector<double> row;
-			for (int i = 0; i < matrix.size(); i++)
-			{
-				row.push_back(matrix[i][j]);
-			}	
-			transposedMatrix.push_back(row);
-		}
+// 		// Iterating over each column
+// 		for (int j = 0; j < matrix[0].size(); j++)
+// 		{
+// 			// Iterating over each row
+// 			vector<double> row;
+// 			for (int i = 0; i < matrix.size(); i++)
+// 			{
+// 				row.push_back(matrix[i][j]);
+// 			}	
+// 			transposedMatrix.push_back(row);
+// 		}
 
-		return transposedMatrix;
-	}
-
-};
+// 		return transposedMatrix;
+// 	}
+// private:
+// 	double **matrix;
+// };

@@ -7,6 +7,12 @@
 
 using namespace cimg_library;
 
+typedef struct matrix
+{
+	double **m;
+} matrix;
+
+
 class LucasKanade 
 {
 public:
@@ -19,6 +25,18 @@ public:
 	{
 		delete allA;
 		delete allB;
+	}
+
+	void initArrays(int width, int height)
+	{
+		allA = new CImg<double>*[width];
+		allB = new CImg<double>*[width];
+
+		for (int i = 0; i < width; i++)
+		{
+			allA[i] = new CImg<double>[height];
+			allB[i] = new CImg<double>[height];
+		}
 	}
 
 	void algorithm (std::vector<CImg<double> > images)
@@ -37,14 +55,7 @@ public:
 
 		minEigenValues.assign(width,height,depth,channel,0);
 		
-		allA = new CImg<double>*[width];
-		allB = new CImg<double>*[width];
-
-		for (int i = 0; i < width; i++)
-		{
-			allA[i] = new CImg<double>[height];
-			allB[i] = new CImg<double>[height];
-		}
+		initArrays(width, height);
 
 		getMatrixes(width, height, ix, iy, it);
 
@@ -96,14 +107,7 @@ public:
 
 		minEigenValues.assign(width,height,depth,channel,0); // Matrix that helps us decide which points should be chosen
 
-		allA = new CImg<double>*[width];
-		allB = new CImg<double>*[width];
-
-		for (int i = 0; i < width; i++)
-		{
-			allA[i] = new CImg<double>[height];
-			allB[i] = new CImg<double>[height];
-		}
+		initArrays(width, height);
 
 		std::cout << "oie" << std::endl;
 		getMatrixes(width, height, ix, iy, it);
@@ -208,13 +212,36 @@ public:
 		{
 			for (int y = 1; y < height - 1; y++)
 			{
+
 				CImg<double> a = applyGaussianWeightsA(ix,iy,x,y);
 				CImg<double> b = applyGaussianWeightsB(it,x,y);
 
 				allA[x][y] = a;
 				allB[x][y] = b;
 
+
+				matrix aT;
+				aT.m = new double*[2];
+				aT.m[0] = new double[2];
+				aT.m[1] = new double[2];
+
+				CImg<double> transp = a.get_transpose();
+
+				for (int w = 0; w < 2; w++)
+				{
+					for (int u = 0; u < 2; u++)					
+					{
+						for(int v = 0; v < 9; v++) 
+						{
+							aT.m[w][u] += transp(v,w)*a(u,v);
+						}
+					}
+				}
+
 				CImg<double> transposedATimesA = a.get_transpose() * a;
+
+				delete aT.m;
+
 				// Calculating eigen values
 				CImgList<double> eigen      = transposedATimesA.get_eigen();
 				CImg<double> eigenValuesImg = eigen(0);
@@ -295,7 +322,6 @@ public:
 
 		return minEigenValues;
 	}
-
 
 	CImg<double> applyGaussianWeightsA (CImg<double> ix, CImg<double> iy, int x, int y)
 	{
