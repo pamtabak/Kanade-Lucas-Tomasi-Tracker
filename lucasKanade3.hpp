@@ -17,8 +17,7 @@ public:
 
 	~LucasKanade()
 	{
-		delete allA;
-		delete allB;
+
 	}
 
 	void algorithm (std::vector<CImg<double> > images)
@@ -35,18 +34,12 @@ public:
 
 		CImg<double> it = getIt(image1, image2);
 
-		minEigenValues.assign(width,height,depth,channel,0);
+		CImg<double> minEigenValues(width,height,depth,channel,0);
 		
-		allA = new CImg<double>*[width];
-		allB = new CImg<double>*[width];
-
-		for (int i = 0; i < width; i++)
-		{
-			allA[i] = new CImg<double>[height];
-			allB[i] = new CImg<double>[height];
-		}
-
-		getMatrixes(width, height, ix, iy, it);
+		std::vector<std::vector<std::vector<CImg<double> >>> matrixes = getMatrixes(width, height, minEigenValues, ix, iy, it);
+		std::vector<std::vector<CImg<double> >> allA = matrixes[0];
+		std::vector<std::vector<CImg<double> >> allB = matrixes[1];
+		minEigenValues = matrixes[2][0][0];
 
 		const unsigned char white[] = { 255,255,255 };
 		double xf = 0.0;
@@ -94,19 +87,11 @@ public:
 		// Calculating It, difference between image 1 and image 2
 		CImg<double> it = getIt(image1, image2); // We are not actually using this information at this point
 
-		minEigenValues.assign(width,height,depth,channel,0); // Matrix that helps us decide which points should be chosen
+		CImg<double> minEigenValues(width,height,depth,channel,0); // Matrix that helps us decide which points should be chosen
 
-		allA = new CImg<double>*[width];
-		allB = new CImg<double>*[width];
-
-		for (int i = 0; i < width; i++)
-		{
-			allA[i] = new CImg<double>[height];
-			allB[i] = new CImg<double>[height];
-		}
 
 		std::cout << "oie" << std::endl;
-		getMatrixes(width, height, ix, iy, it);
+		getMatrixes(width, height, minEigenValues, ix, iy, it);
 		// std::vector<std::vector<std::vector<CImg<double> >>> matrixes = getMatrixes(width, height, &minEigenValues, ix, iy, it, &allA, &allB);
 		// std::vector<std::vector<CImg<double> >> allA                  = matrixes[0];
 		// std::vector<std::vector<CImg<double> >> allB                  = matrixes[1];
@@ -131,8 +116,6 @@ public:
 				}
 			}
 		}
-
-		std::cout << points.size() << std::endl;
 
 		// Once the points are choosen from the original image, we build the pyramid
 		for (int level = pyramidSize - 1; level >= 0; level--)
@@ -179,8 +162,6 @@ public:
 			}
 		}
 
-		std::cout << "testing" << std::endl;
-
 		double meanX = 0.0;
 		double meanY = 0.0;
 		for (int p = 0; p < points.size(); p++)
@@ -202,8 +183,13 @@ public:
 		image1.display();
 	}
 
-	void getMatrixes(const int width,const int height, CImg<double> ix, CImg<double> iy, CImg<double> it)
+	CImg<double>* getMatrixes(const int width,const int height, CImg<double> minEigenValues, CImg<double> ix, CImg<double> iy, CImg<double> it)
 	{
+		CImg<double> matrixes[3];
+
+		CImg<double> allA[width][height];
+		CImg<double> allB[width][height];
+
 		for (int x = 1; x < width - 1; x++)
 		{
 			for (int y = 1; y < height - 1; y++)
@@ -244,6 +230,100 @@ public:
 			}
 		}
 
+		// double threshold = 0.1*maximumMinEigenValue;
+		// for (int x = 1; x < width - 1; x++)
+		// {
+		// 	for (int y = 1; y < height - 1; y++)
+		// 	{
+		// 		// Choosing possible points to be tracked
+		// 		if (minEigenValues(x,y) <= threshold)
+		// 		{
+		// 			minEigenValues(x,y) = 0.0;
+		// 		}
+		// 	}
+		// }
+
+		// // // Only staying with one chosen pixel per window
+		// for (int x = 1; x < width - 1; x++)
+		// {
+		// 	for (int y = 1; y < height - 1; y++)
+		// 	{
+		// 		minEigenValues = reducingAmountOfPointsToTrack (minEigenValues, x, y);
+		// 	}
+		// }
+
+		matrixes[0] = allA;
+		matrixes[1] = allB;
+		matrixes[2] = minEigenValues;
+
+		return matrixes;
+	}
+
+	// Returns all A matrixes (for all pixels), all B matrixes and minEigenValue matrix (for each pixel,
+	// the minimum eigen value, in order to choose which pixels we are going to track)
+	std::vector<std::vector<std::vector<CImg<double> >>> getMatrixes(int width, int height, CImg<double> minEigenValues, CImg<double> ix, CImg<double> iy, CImg<double> it)
+	{
+		// Initializing return object
+		std::vector<std::vector<std::vector<CImg<double> >>> matrixes;	
+
+		std::vector<std::vector<CImg<double> >> allA; // all A matrixes
+		std::vector<std::vector<CImg<double> >> allB; // all B matrixes
+		std::vector<std::vector<CImg<double> >> modifiedMinEigenValue; // creating a vector just so we can return minEigenValue object
+
+		std::vector<CImg<double> > fixingBorderIssue;
+		fixingBorderIssue.push_back(minEigenValues);
+		allA.push_back(fixingBorderIssue);
+		allB.push_back(fixingBorderIssue);
+
+		for (int x = 1; x < width - 1; x++)
+		{
+			std::vector<CImg<double> > rowA;
+			std::vector<CImg<double> > rowB;
+
+			rowA.push_back(minEigenValues);
+			rowB.push_back(minEigenValues);
+
+			for (int y = 1; y < height - 1; y++)
+			{
+				CImg<double> a = applyGaussianWeightsA(ix,iy,x,y);
+				CImg<double> b = applyGaussianWeightsB(it,x,y);
+
+				rowA.push_back(a);
+				rowB.push_back(b);
+
+				CImg<double> transposedATimesA = a.get_transpose() * a;
+				// Calculating eigen values
+				CImgList<double> eigen      = transposedATimesA.get_eigen();
+				CImg<double> eigenValuesImg = eigen(0);
+				double lambda0              = eigenValuesImg(0,0);
+				double lambda1              = eigenValuesImg(0,1);
+
+				if (lambda0 > 0 && lambda1 > 0)
+				{
+					// We are only choosing pixels where both eigen values are positive
+					if (lambda0 > lambda1)
+					{
+						minEigenValues(x,y) = lambda1;
+						if (lambda1 > maximumMinEigenValue)
+						{
+							maximumMinEigenValue = lambda1;
+						}
+					}
+					else
+					{
+						minEigenValues(x,y) = lambda0;
+						if (lambda0 > maximumMinEigenValue)
+						{
+							maximumMinEigenValue = lambda0;
+						}
+					}
+				}
+			}
+
+			allA.push_back(rowA);
+			allB.push_back(rowB);
+		}
+
 		double threshold = 0.1*maximumMinEigenValue;
 		for (int x = 1; x < width - 1; x++)
 		{
@@ -265,6 +345,16 @@ public:
 				minEigenValues = reducingAmountOfPointsToTrack (minEigenValues, x, y);
 			}
 		}
+
+		std::vector<CImg<double> > minEigenValueVector;
+		minEigenValueVector.push_back(minEigenValues);
+		modifiedMinEigenValue.push_back(minEigenValueVector);
+
+		matrixes.push_back(allA);
+		matrixes.push_back(allB);
+		matrixes.push_back(modifiedMinEigenValue);
+
+		return matrixes;
 	}
 
 	CImg<double> reducingAmountOfPointsToTrack (CImg<double> minEigenValues, int x, int y)
@@ -511,7 +601,4 @@ private:
 	int initValue               = 0;
 	int pyramidSize             = 1;
 	double maximumMinEigenValue = 0.0;
-	CImg<double> ** allA;
-	CImg<double> ** allB;
-	CImg<double> minEigenValues;
 };

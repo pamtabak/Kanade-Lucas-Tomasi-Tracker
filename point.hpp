@@ -14,7 +14,6 @@ public:
 
 	~ChosenPoint()
 	{
-		// delete []flow;
 	}
 
 	void setNumberOfFrames(int numberOfFrames)
