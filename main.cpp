@@ -2,8 +2,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
-// #include "lucasKanade.hpp"
-#include "lucasKanade3.hpp"
+#include "lucasKanade.hpp"
+// #include "lucasKanade3.hpp"
 #include "harrisdetector.hpp"
 
 #define cimg_use_magick
