@@ -94,6 +94,7 @@ public:
 			std::vector<std::vector<CImg<double> >> pyramids = getGaussianPyramids(imagesBeingUsed);
 
 			const unsigned char white[] = { 255,255,255 };
+			const unsigned char pink [] = { 255,0,255 };
 
 			const int height    = image1.height();
 			const int width     = image1.width();
@@ -177,6 +178,10 @@ public:
 								// just checking if everything went ok with all matrixes transformations
 								points[p].setFlow(v.m[0][0], v.m[1][0], frame);
 							}
+							else
+							{
+								points.erase(points.begin() + p - 1);
+							}
 							delete v.m;
 							delete a.m;
 							delete b.m;
@@ -189,25 +194,29 @@ public:
 					else
 					{
 						points[p].updateFlow(0.0, 0.0, frame);
-						points.erase(points.begin() + p - 1);
+						// points.erase(points.begin() + p - 1);
 					}
 				}
 			}
 
 			for (int p = 0; p < points.size(); p++)
 			{
-				double finalX = points[p].getPoint().x - points[p].getFlow()[frame].x;
-				double finalY = points[p].getPoint().y - points[p].getFlow()[frame].y;
-				point finalPoint = bilinearInterpolation(finalX, finalY);
+				if (points[p].getFlow()[frame].x > 0.0 || points[p].getFlow()[frame].y > 0.0)
+				{
+					double finalX = points[p].getPoint().x - points[p].getFlow()[frame].x;
+					double finalY = points[p].getPoint().y - points[p].getFlow()[frame].y;
+					point finalPoint = bilinearInterpolation(finalX, finalY);
 
-				if ((int) finalPoint.x <= (width - 1) && (int) finalPoint.x >= 0 && (int) finalPoint.y <= (height - 1) && (int) finalPoint.y >= 0)
-				{
-					image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, white);	
-				}
-				else
-				{
-					// pixel is outside the image
-					points.erase(points.begin() + p - 1);
+					if ((int) finalPoint.x <= (width - 1) && (int) finalPoint.x >= 0 && (int) finalPoint.y <= (height - 1) && (int) finalPoint.y >= 0)
+					{
+						image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, pink);	
+						// points[p].setPoint(finalPoint.x, finalPoint.y);
+					}
+					else
+					{
+						// pixel is outside the image
+						points.erase(points.begin() + p - 1);
+					}
 				}
 			}
 
@@ -218,6 +227,7 @@ public:
 			// delete iy.m;
 			// delete it.m;
 		}
+		images[numberOfFrames].save("images/output/piramide.png", numberOfFrames);
 	}
 
 	void getMatrixes(const int width,const int height, matrix ix, matrix iy, matrix it)
