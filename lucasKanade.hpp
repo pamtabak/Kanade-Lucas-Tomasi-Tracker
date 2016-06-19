@@ -82,138 +82,142 @@ public:
 	void pyramidAlgorithm (std::vector<CImg<double> > images)
 	{
 		int numberOfFrames = images.size() - 1;
-		int frame          = 0; // for iteration purposes
-		// std::vector<ChosenPoint*> points;
 		std::vector<ChosenPoint> points;
-
-		CImg<double> image1 = images[0];
-		CImg<double> image2 = images[1];
-
-		std::vector<CImg<double> > imagesBeingUsed;
-		imagesBeingUsed.push_back(image1);
-		imagesBeingUsed.push_back(image2);
-		std::vector<std::vector<CImg<double> >> pyramids = getGaussianPyramids(imagesBeingUsed);
-
-		const int height    = image1.height();
-		const int width     = image1.width();
-
-		// Calculating Ix and Iy for image1
-		std::vector<matrix> derived = derive(image1);
-		matrix ix                    = derived[0];
-		matrix iy                    = derived[1];
-
-		// Calculating It, difference between image 1 and image 2
-		matrix it = getIt(image1, image2); // We are not actually using this information at this point
-
-		// minEigenValues.assign(width,height,depth,channel,0); // Matrix that helps us decide which points should be chosen
-		minEigenValues.m = new double*[width];
-		for (int i = 0; i < width; i++)
+		for (int frame = 0; frame < numberOfFrames; frame++)
 		{
-			minEigenValues.m[i] = new double[height];
-			for (int j = 0; j < height; j++)
+			CImg<double> image1 = images[frame];
+			CImg<double> image2 = images[frame + 1];
+
+			std::vector<CImg<double> > imagesBeingUsed;
+			imagesBeingUsed.push_back(image1);
+			imagesBeingUsed.push_back(image2);
+			std::vector<std::vector<CImg<double> >> pyramids = getGaussianPyramids(imagesBeingUsed);
+
+			const unsigned char white[] = { 255,255,255 };
+
+			const int height    = image1.height();
+			const int width     = image1.width();
+
+			matrix ix;
+			matrix iy;
+			matrix it;
+			if (frame % 10 == 0)
 			{
-				minEigenValues.m[i][j] = 0.0;
-			}
-		}
+				points.clear();
 
-		initArrays(width, height);
+				// we are only recalculating points to track in this case
+				// Calculating Ix and Iy for image1
+				std::vector<matrix> derived = derive(image1);
+				ix                    = derived[0];
+				iy                    = derived[1];
 
-		getMatrixes(width, height, ix, iy, it);
+				// Calculating It, difference between image 1 and image 2
+				it = getIt(image1, image2); // We are not actually using this information at this point
 
-		const unsigned char white[] = { 255,255,255 };
-		for (int y = 1; y < height - 1; y++)
-		{
-			for (int x = 1; x < width - 1; x++)
-			{
-				if (minEigenValues.m[x][y] > 0.0)
+				// minEigenValues.assign(width,height,depth,channel,0); // Matrix that helps us decide which points should be chosen
+				minEigenValues.m = new double*[width];
+				for (int i = 0; i < width; i++)
 				{
-					// choose this point
-					ChosenPoint chosenP;
-					chosenP.setNumberOfFrames(numberOfFrames);
-					chosenP.setPoint(x, y);
-					points.push_back(chosenP);
-
-					// CImg<double> v = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];
-					// image1.draw_line(x, y ,x ,y + 1, white);
-				}
-			}
-		}
-
-		// image1.display();
-
-		std::cout << points.size() << std::endl;
-
-		// Once the points are choosen from the original image, we build the pyramid
-		for (int level = pyramidSize - 1; level >= 0; level--)
-		{
-			std::cout << level << std::endl;
-			// STILL NEED TO DO FOR MORE THAN 2 IMAGES
-			// STILL NEED TO DO SOMETHING TO CHANGE CHOSEN POINTS AFTER X FRAMES
-			for (int p = 0; p < points.size(); p++)
-			{
-				int xOnLevel = points[p].getPoint().x / pow(2,level);
-				int YOnLevel = points[p].getPoint().y / pow(2,level);
-
-				if (xOnLevel > 0 && xOnLevel < pyramids[0][level].width() && YOnLevel > 0 && YOnLevel < pyramids[0][level].height())
-				{
-					if (level == pyramidSize - 1)
+					minEigenValues.m[i] = new double[height];
+					for (int j = 0; j < height; j++)
 					{
-						std::vector<matrix> derived = derive(pyramids[0][level]);
-						ix                    = derived[0];
-						iy                    = derived[1];
+						minEigenValues.m[i][j] = 0.0;
+					}
+				}
 
-						it = getIt(pyramids[0][level], pyramids[1][level], 2*points[p].getFlow()[frame].x, 2*points[p].getFlow()[frame].y);
-						
-						// Calculating matrix A and B, at this point
-						matrix a = applyGaussianWeightsA(ix, iy, xOnLevel, YOnLevel);
-						matrix b = applyGaussianWeightsB(it, xOnLevel ,YOnLevel);
+				initArrays(width, height);
 
-						matrix v = calculateFlow(a,b);
-						if (!std::isnan(v.m[0][0]) && !std::isnan(v.m[1][0]))
+				getMatrixes(width, height, ix, iy, it);
+
+				for (int y = 1; y < height - 1; y++)
+				{
+					for (int x = 1; x < width - 1; x++)
+					{
+						if (minEigenValues.m[x][y] > 0.0)
 						{
-							// just checking if everything went ok with all matrixes transformations
-							points[p].setFlow(v.m[0][0], v.m[1][0], frame);
+							// choose this point
+							ChosenPoint chosenP;
+							chosenP.setNumberOfFrames(numberOfFrames);
+							chosenP.setPoint(x, y);
+							points.push_back(chosenP);
 						}
-						delete v.m;
-						delete a.m;
-						delete b.m;
+					}
+				}
+
+				std::cout << points.size() << std::endl;
+			}
+
+			// Once the points are choosen from the original image, we build the pyramid
+			for (int level = pyramidSize - 1; level >= 0; level--)
+			{
+				std::cout << level << std::endl;
+				for (int p = 0; p < points.size(); p++)
+				{
+					int xOnLevel = points[p].getPoint().x / pow(2,level);
+					int YOnLevel = points[p].getPoint().y / pow(2,level);
+
+					if (xOnLevel > 0 && xOnLevel < pyramids[0][level].width() - 1 && YOnLevel > 0 && YOnLevel < pyramids[0][level].height() - 1)
+					{
+						if (level == pyramidSize - 1)
+						{
+							std::vector<matrix> derived = derive(pyramids[0][level]);
+							
+							ix                    = derived[0];
+							iy                    = derived[1];
+
+							it = getIt(pyramids[0][level], pyramids[1][level], 2*points[p].getFlow()[frame].x, 2*points[p].getFlow()[frame].y);
+
+							// Calculating matrix A and B, at this point
+							matrix a = applyGaussianWeightsA(ix, iy, xOnLevel, YOnLevel);
+							matrix b = applyGaussianWeightsB(it, xOnLevel ,YOnLevel);
+
+							matrix v = calculateFlow(a,b);
+							if (!std::isnan(v.m[0][0]) && !std::isnan(v.m[1][0]))
+							{
+								// just checking if everything went ok with all matrixes transformations
+								points[p].setFlow(v.m[0][0], v.m[1][0], frame);
+							}
+							delete v.m;
+							delete a.m;
+							delete b.m;
+						}
+						else
+						{
+							points[p].updateFlow(frame);
+						}
 					}
 					else
 					{
-						points[p].updateFlow(frame);
+						points[p].updateFlow(0.0, 0.0, frame);
+						points.erase(points.begin() + p - 1);
 					}
+				}
+			}
+
+			for (int p = 0; p < points.size(); p++)
+			{
+				double finalX = points[p].getPoint().x - points[p].getFlow()[frame].x;
+				double finalY = points[p].getPoint().y - points[p].getFlow()[frame].y;
+				point finalPoint = bilinearInterpolation(finalX, finalY);
+
+				if ((int) finalPoint.x <= (width - 1) && (int) finalPoint.x >= 0 && (int) finalPoint.y <= (height - 1) && (int) finalPoint.y >= 0)
+				{
+					image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, white);	
 				}
 				else
 				{
-					points[p].updateFlow(0.0, 0.0, frame);
+					// pixel is outside the image
+					points.erase(points.begin() + p - 1);
 				}
 			}
+
+			image1.save("images/output/piramide.png", frame);
+
+			// delete minEigenValues.m;
+			// delete ix.m;
+			// delete iy.m;
+			// delete it.m;
 		}
-
-		double meanX = 0.0;
-		double meanY = 0.0;
-		for (int p = 0; p < points.size(); p++)
-		{
-			double finalX = points[p].getPoint().x + points[p].getFlow()[frame].x;
-			double finalY = points[p].getPoint().y + points[p].getFlow()[frame].y;
-			point finalPoint = bilinearInterpolation(finalX, finalY);
-			// We need to  verify if pixel is outside the image
-
-			image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, white);
-
-			meanX += points[p].getFlow()[frame].x;
-			meanY += points[p].getFlow()[frame].y;
-		}
-
-		std::cout << meanX/points.size() << "," << meanY/points.size() << std::endl;
-
-		image1.save("testePiramide.png");
-		image1.display();
-
-		delete minEigenValues.m;
-		delete ix.m;
-		delete iy.m;
-		delete it.m;
 	}
 
 	void getMatrixes(const int width,const int height, matrix ix, matrix iy, matrix it)
@@ -259,7 +263,7 @@ public:
 			}
 		}
 
-		// // Only staying with one chosen pixel per window
+		// Only staying with one chosen pixel per window
 		for (int x = 1; x < width - 1; x++)
 		{
 			for (int y = 1; y < height - 1; y++)
@@ -642,7 +646,7 @@ private:
 	int depth                   = 1;
 	int channel                 = 1;
 	int initValue               = 0;
-	int pyramidSize             = 3;
+	int pyramidSize             = 4;
 	double maximumMinEigenValue = 0.0;
 	matrix ** allA;
 	matrix ** allB;
