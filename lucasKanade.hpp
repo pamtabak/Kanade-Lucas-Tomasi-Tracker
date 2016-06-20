@@ -225,23 +225,35 @@ public:
 					point finalPoint = bilinearInterpolation(finalX, finalY);
 
 
-					double finalFlowX = finalPoint.x;
-					double finalFlowY = finalPoint.y;
+					double initFlowX = points[p].getPoint().x;
+					double initFlowY = points[p].getPoint().y;
+					double lastFlowX = finalPoint.x;
+					double lastFlowY = finalPoint.y;
 					
 					if (frame >= 10)
 					{
 						for (int f = frame - 10; f < frame; f++)
 						{
-							finalFlowX -= points[p].getFlow()[f].x;
-							finalFlowY -= points[p].getFlow()[f].y;
+							image1.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
+							initFlowX = lastFlowX;
+							initFlowY = lastFlowY;
+							lastFlowX = lastFlowX - points[p].getFlow()[f].x;
+							lastFlowY = lastFlowY - points[p].getFlow()[f].y;
+							// finalFlowX -= points[p].getFlow()[f].x;
+							// finalFlowY -= points[p].getFlow()[f].y;
+							// image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalFlowX, (int) finalFlowY, pink);		
 						}
 					}
-
-					if ((int) finalFlowX <= (width - 1) && (int) finalFlowX >= 0 && (int) finalFlowY <= (height - 1) && (int) finalFlowY >= 0)
+					else
 					{
-						// image1.draw_point(points[p].getPoint().x, points[p].getPoint().y, white);
-						image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalFlowX, (int) finalFlowY, pink);		
+						image1.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
 					}
+
+					// if ((int) finalFlowX <= (width - 1) && (int) finalFlowX >= 0 && (int) finalFlowY <= (height - 1) && (int) finalFlowY >= 0)
+					// {
+						// image1.draw_point(points[p].getPoint().x, points[p].getPoint().y, white);
+						// image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalFlowX, (int) finalFlowY, pink);		
+					// }
 					
 					points[p].setPoint(finalPoint.x, finalPoint.y);
 					
@@ -267,7 +279,7 @@ public:
 				}
 			}
 			// image1.display();
-			image1.save("images/output/piramide.png", frame);
+			image1.save("images/output/Segments/piramide.png", frame);
 
 			// delete minEigenValues.m;
 			// delete ix.m;
@@ -275,7 +287,7 @@ public:
 			// delete it.m;
 		}
 
-		images[numberOfFrames].save("images/output/piramide.png", numberOfFrames);
+		images[numberOfFrames].save("images/output/Segments/piramide.png", numberOfFrames);
 	}
 
 	void getMatrixes(const int width,const int height, matrix ix, matrix iy, matrix it)
