@@ -79,6 +79,19 @@ public:
 	// 	image1.display();
 	// }
 
+	bool pointInArray(std::vector<ChosenPoint> points, double pointX, double pointY)
+	{
+		for (int i = 0; i < points.size(); i++)
+		{
+			if (points[i].getPoint().x == pointX && points[i].getPoint().y == pointY)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	void pyramidAlgorithm (std::vector<CImg<double> > images)
 	{
 		int numberOfFrames = images.size() - 1;
@@ -104,7 +117,7 @@ public:
 			matrix it;
 			if (frame % 10 == 0)
 			{
-				points.clear();
+				// points.clear();
 
 				// we are only recalculating points to track in this case
 				// Calculating Ix and Iy for image1
@@ -136,11 +149,14 @@ public:
 					{
 						if (minEigenValues.m[x][y] > 0.0)
 						{
-							// choose this point
-							ChosenPoint chosenP;
-							chosenP.setNumberOfFrames(numberOfFrames);
-							chosenP.setPoint(x, y);
-							points.push_back(chosenP);
+							if (!pointInArray(points, (double) x, (double) y))
+							{
+								// choose this point
+								ChosenPoint chosenP;
+								chosenP.setNumberOfFrames(numberOfFrames);
+								chosenP.setPoint(x, y);
+								points.push_back(chosenP);
+							}
 						}
 					}
 				}
@@ -182,6 +198,7 @@ public:
 							{
 								points.erase(points.begin() + p - 1);
 							}
+
 							delete v.m;
 							delete a.m;
 							delete b.m;
@@ -193,8 +210,8 @@ public:
 					}
 					else
 					{
-						points[p].updateFlow(0.0, 0.0, frame);
-						// points.erase(points.begin() + p - 1);
+						// points[p].updateFlow(0.0, 0.0, frame);
+						points.erase(points.begin() + p - 1);
 					}
 				}
 			}
@@ -207,19 +224,49 @@ public:
 					double finalY = points[p].getPoint().y - points[p].getFlow()[frame].y;
 					point finalPoint = bilinearInterpolation(finalX, finalY);
 
-					if ((int) finalPoint.x <= (width - 1) && (int) finalPoint.x >= 0 && (int) finalPoint.y <= (height - 1) && (int) finalPoint.y >= 0)
+
+					double finalFlowX = finalPoint.x;
+					double finalFlowY = finalPoint.y;
+					
+					if (frame >= 10)
 					{
-						image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, pink);	
-						// points[p].setPoint(finalPoint.x, finalPoint.y);
+						for (int f = frame - 10; f < frame; f++)
+						{
+							finalFlowX -= points[p].getFlow()[f].x;
+							finalFlowY -= points[p].getFlow()[f].y;
+						}
 					}
-					else
+
+					if ((int) finalFlowX <= (width - 1) && (int) finalFlowX >= 0 && (int) finalFlowY <= (height - 1) && (int) finalFlowY >= 0)
 					{
-						// pixel is outside the image
-						points.erase(points.begin() + p - 1);
+						// image1.draw_point(points[p].getPoint().x, points[p].getPoint().y, white);
+						image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalFlowX, (int) finalFlowY, pink);		
 					}
+					
+					points[p].setPoint(finalPoint.x, finalPoint.y);
+					
+					// {
+					// 	if (frame >= 10)
+					// 	{
+					// 		for (int f = frame - 10; f <= frame; f++)
+					// 		{
+					// 			finalPoint.x += points[p].getFlow()[f].x;
+					// 			finalPoint.y += points[p].getFlow()[f].y;
+					// 		}
+					// 	}
+
+					// 	image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, pink);	
+					// 	points[p].setPoint(finalPoint.x, finalPoint.y);
+					// }
+					// else
+					// {
+					// 	// pixel is outside the image
+					// 	points[p].setFlow(0.0, 0.0, frame);
+					// 	// points.erase(points.begin() + p - 1);
+					// }
 				}
 			}
-
+			// image1.display();
 			image1.save("images/output/piramide.png", frame);
 
 			// delete minEigenValues.m;
@@ -227,6 +274,7 @@ public:
 			// delete iy.m;
 			// delete it.m;
 		}
+
 		images[numberOfFrames].save("images/output/piramide.png", numberOfFrames);
 	}
 
