@@ -12,6 +12,12 @@ typedef struct matrix
 	double **m;
 } matrix;
 
+typedef struct pointInArray
+{
+	bool inArray;
+	int position;
+} pointInArray;
+
 
 class LucasKanade 
 {
@@ -79,23 +85,27 @@ public:
 	// 	image1.display();
 	// }
 
-	bool pointInArray(std::vector<ChosenPoint> points, double pointX, double pointY)
+	pointInArray pointInArrayFunction(std::vector<ChosenPoint> points, double pointX, double pointY)
 	{
+		pointInArray p;
 		for (int i = 0; i < points.size(); i++)
 		{
 			if (points[i].getPoint().x == pointX && points[i].getPoint().y == pointY)
 			{
-				return true;
+				p.inArray = true;
+				p.position = i;
+				return p;
 			}
 		}
 
-		return false;
+		p.inArray = false;
+		return p;
 	}
 
 	void pyramidAlgorithm (std::vector<CImg<double> > images)
 	{
 		int numberOfFrames = images.size() - 1;
-		std::vector<ChosenPoint> points;
+		// std::vector<ChosenPoint> points;
 		for (int frame = 0; frame < numberOfFrames; frame++)
 		{
 			CImg<double> image1 = images[frame];
@@ -149,7 +159,8 @@ public:
 					{
 						if (minEigenValues.m[x][y] > 0.0)
 						{
-							if (!pointInArray(points, (double) x, (double) y))
+							pointInArray pointIn = pointInArrayFunction(points, (double) x, (double) y);
+							if (!pointIn.inArray)
 							{
 								// choose this point
 								ChosenPoint chosenP;
@@ -239,46 +250,16 @@ public:
 							initFlowY = lastFlowY;
 							lastFlowX = lastFlowX - points[p].getFlow()[f].x;
 							lastFlowY = lastFlowY - points[p].getFlow()[f].y;
-							// finalFlowX -= points[p].getFlow()[f].x;
-							// finalFlowY -= points[p].getFlow()[f].y;
-							// image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalFlowX, (int) finalFlowY, pink);		
 						}
 					}
 					else
 					{
 						image1.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
 					}
-
-					// if ((int) finalFlowX <= (width - 1) && (int) finalFlowX >= 0 && (int) finalFlowY <= (height - 1) && (int) finalFlowY >= 0)
-					// {
-						// image1.draw_point(points[p].getPoint().x, points[p].getPoint().y, white);
-						// image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalFlowX, (int) finalFlowY, pink);		
-					// }
 					
 					points[p].setPoint(finalPoint.x, finalPoint.y);
-					
-					// {
-					// 	if (frame >= 10)
-					// 	{
-					// 		for (int f = frame - 10; f <= frame; f++)
-					// 		{
-					// 			finalPoint.x += points[p].getFlow()[f].x;
-					// 			finalPoint.y += points[p].getFlow()[f].y;
-					// 		}
-					// 	}
-
-					// 	image1.draw_line(points[p].getPoint().x, points[p].getPoint().y, (int) finalPoint.x, (int) finalPoint.y, pink);	
-					// 	points[p].setPoint(finalPoint.x, finalPoint.y);
-					// }
-					// else
-					// {
-					// 	// pixel is outside the image
-					// 	points[p].setFlow(0.0, 0.0, frame);
-					// 	// points.erase(points.begin() + p - 1);
-					// }
 				}
 			}
-			// image1.display();
 			image1.save("images/output/Segments/piramide.png", frame);
 
 			// delete minEigenValues.m;
@@ -367,21 +348,20 @@ public:
 	matrix getInvert (matrix a)
 	{
 		matrix invert;
-		invert.m = new double*[2];
+		invert.m    = new double*[2];
 		invert.m[0] = new double[2];
 		invert.m[1] = new double[2];
 
 		double d = 1 / (a.m[0][0]*a.m[1][1] - a.m[0][1]*a.m[1][0]);
 
-		invert.m[0][0] = d*a.m[1][1];
+		invert.m[0][0] =   d*a.m[1][1];
 		invert.m[0][1] = - d*a.m[0][1];
 		invert.m[1][0] = - d*a.m[1][0];
-		invert.m[1][1] = d*a.m[0][0];
+		invert.m[1][1] =   d*a.m[0][0];
 
 		return invert;
 	}
 
-	// CImg<double> v = ((a.get_transpose() * a).get_invert())*a.get_transpose()*b;
 	matrix calculateFlow (matrix a, matrix b)
 	{
 		matrix aTranspose = getTranspose(a, 9, 2);
@@ -602,8 +582,8 @@ public:
 	matrix getIt (CImg<double> image1, CImg<double> image2, double xFlow, double yFlow)
 	{
 		// Setting image`s attributes
-		int height    = image1.height();
-		int width     = image1.width();
+		int height = image1.height();
+		int width  = image1.width();
 
 		// Initializing return object
 		matrix it;
@@ -617,23 +597,30 @@ public:
 			for (int y = 0; y < height; y++)
 			{
 				newX = x + xFlow;
-				if (newX < 0)
-					newX = x;
-				if (newX >= width)
-					newX = x;
-				
-
 				newY = y + yFlow;
-				if (newY < 0)
-					newY = y;
-				if (newY >= height)
-					newY = y;
+				if (newX < 0 || newX >= width || newY < 0 || newY >= height)
+				{
+					pointInArray p = pointInArrayFunction(points, (double) x, (double) y);
+					if (p.inArray)
+					{
+						points.erase(points.begin() + p.position - 1);
+					}
+					it.m[x][y] = 0.0;
+					continue;
+				}
 
 				point newPoint = bilinearInterpolation(newX, newY);
-				if (newPoint.y == height)
-					newPoint.y--;
-				if (newPoint.x == width)
-					newPoint.x--;
+				if (newPoint.y == height || newPoint.x == width)
+				{
+					pointInArray p = pointInArrayFunction(points, (double) x, (double) y);
+					if (p.inArray)
+					{
+						points.erase(points.begin() + p.position - 1);
+					}
+					it.m[x][y] = 0.0;
+					continue;
+				}
+
 				it.m[x][y] = image2(newPoint.x, newPoint.y) - image1(x,y);
 			}
 		}
@@ -721,4 +708,5 @@ private:
 	matrix ** allA;
 	matrix ** allB;
 	matrix minEigenValues;
+	std::vector<ChosenPoint> points;
 };
