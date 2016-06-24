@@ -35,9 +35,20 @@ public:
 		this->pt.y = (double) y;
 	}
 
+	void setInitialPoint(int x, int y)
+	{
+		this->initialPoint.x = (double) x;
+		this->initialPoint.y = (double) y;
+	}
+
 	point getPoint()
 	{
 		return this->pt;
+	}
+
+	point getInitialPoint()
+	{
+		return this->initialPoint;
 	}
 
 	point* getFlow()
@@ -63,6 +74,7 @@ public:
 		this->flow[position].y = yFlow;
 	}
 
+	point initialPoint;
 	point pt;
 	point *flow;
 };

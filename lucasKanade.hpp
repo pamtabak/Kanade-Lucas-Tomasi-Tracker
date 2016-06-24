@@ -105,6 +105,9 @@ public:
 	void pyramidAlgorithm (std::vector<CImg<double> > images)
 	{
 		int numberOfFrames = images.size() - 1;
+
+		images[0].save("images/output/Segments/piramide.png", 0);
+
 		// std::vector<ChosenPoint> points;
 		for (int frame = 0; frame < numberOfFrames; frame++)
 		{
@@ -166,6 +169,7 @@ public:
 								ChosenPoint chosenP;
 								chosenP.setNumberOfFrames(numberOfFrames);
 								chosenP.setPoint(x, y);
+								chosenP.setInitialPoint(x,y);
 								points.push_back(chosenP);
 							}
 						}
@@ -186,38 +190,34 @@ public:
 
 					if (xOnLevel > 0 && xOnLevel < pyramids[0][level].width() - 1 && YOnLevel > 0 && YOnLevel < pyramids[0][level].height() - 1)
 					{
-						if (level == pyramidSize - 1)
+						double initialFlowX = 2*points[p].getFlow()[frame].x;
+						double initialFlowY = 2*points[p].getFlow()[frame].y;
+
+						std::vector<matrix> derived = derive(pyramids[0][level]);
+						
+						ix                    = derived[0];
+						iy                    = derived[1];
+
+						it = getIt(pyramids[0][level], pyramids[1][level], initialFlowX, initialFlowY);
+
+						// Calculating matrix A and B, at this point
+						matrix a = applyGaussianWeightsA(ix, iy, xOnLevel, YOnLevel);
+						matrix b = applyGaussianWeightsB(it, xOnLevel ,YOnLevel);
+
+						matrix v = calculateFlow(a,b);
+						if (!std::isnan(v.m[0][0]) && !std::isnan(v.m[1][0]))
 						{
-							std::vector<matrix> derived = derive(pyramids[0][level]);
-							
-							ix                    = derived[0];
-							iy                    = derived[1];
-
-							it = getIt(pyramids[0][level], pyramids[1][level], 2*points[p].getFlow()[frame].x, 2*points[p].getFlow()[frame].y);
-
-							// Calculating matrix A and B, at this point
-							matrix a = applyGaussianWeightsA(ix, iy, xOnLevel, YOnLevel);
-							matrix b = applyGaussianWeightsB(it, xOnLevel ,YOnLevel);
-
-							matrix v = calculateFlow(a,b);
-							if (!std::isnan(v.m[0][0]) && !std::isnan(v.m[1][0]))
-							{
-								// just checking if everything went ok with all matrixes transformations
-								points[p].setFlow(v.m[0][0], v.m[1][0], frame);
-							}
-							else
-							{
-								points.erase(points.begin() + p - 1);
-							}
-
-							delete v.m;
-							delete a.m;
-							delete b.m;
+							// just checking if everything went ok with all matrixes transformations
+							points[p].setFlow(v.m[0][0] + initialFlowX, v.m[1][0] + initialFlowY, frame);
 						}
 						else
 						{
-							points[p].updateFlow(frame);
+							points.erase(points.begin() + p - 1);
 						}
+
+						delete v.m;
+						delete a.m;
+						delete b.m;
 					}
 					else
 					{
@@ -229,12 +229,12 @@ public:
 
 			for (int p = 0; p < points.size(); p++)
 			{
+				points[p].setPoint(points[p].getPoint().x + points[p].getFlow()[frame].x, points[p].getPoint().y + points[p].getFlow()[frame].y);
 				if (points[p].getFlow()[frame].x > 0.0 || points[p].getFlow()[frame].y > 0.0)
 				{
 					double finalX = points[p].getPoint().x - points[p].getFlow()[frame].x;
 					double finalY = points[p].getPoint().y - points[p].getFlow()[frame].y;
 					point finalPoint = bilinearInterpolation(finalX, finalY);
-
 
 					double initFlowX = points[p].getPoint().x;
 					double initFlowY = points[p].getPoint().y;
@@ -243,9 +243,9 @@ public:
 					
 					if (frame >= 10)
 					{
-						for (int f = frame - 10; f < frame; f++)
+						for (int f = frame - 1; f >= frame - 10; f--)
 						{
-							image1.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
+							image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
 							initFlowX = lastFlowX;
 							initFlowY = lastFlowY;
 							lastFlowX = lastFlowX - points[p].getFlow()[f].x;
@@ -254,21 +254,17 @@ public:
 					}
 					else
 					{
-						image1.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
+						image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
 					}
-					
-					points[p].setPoint(finalPoint.x, finalPoint.y);
 				}
 			}
-			image1.save("images/output/Segments/piramide.png", frame);
+			image2.save("images/output/Segments/piramide.png", frame + 1);
 
 			// delete minEigenValues.m;
 			// delete ix.m;
 			// delete iy.m;
 			// delete it.m;
 		}
-
-		images[numberOfFrames].save("images/output/Segments/piramide.png", numberOfFrames);
 	}
 
 	void getMatrixes(const int width,const int height, matrix ix, matrix iy, matrix it)
@@ -283,7 +279,7 @@ public:
 				allA[x][y] = a;
 				allB[x][y] = b;				
 
-				matrix aT = getTranspose(a, 9, 2);
+				matrix aT  = getTranspose(a, 9, 2);
 				matrix aTa = multiplyMatrix(aT,a,2,2,9);
 
 				double lambda0 = getMinEigenValue2x2(aTa.m[0][0], aTa.m[0][1], aTa.m[1][0], aTa.m[1][1]);
@@ -571,7 +567,7 @@ public:
 			it.m[x] = new double[height];
 			for (int y = 0; y < height; y++)
 			{
-				it.m[x][y] = image2(x,y) - image1(x,y);
+				it.m[x][y] = - (image2(x,y) - image1(x,y));
 			}
 		}
 
@@ -621,7 +617,7 @@ public:
 					continue;
 				}
 
-				it.m[x][y] = image2(newPoint.x, newPoint.y) - image1(x,y);
+				it.m[x][y] = - (image2(newPoint.x, newPoint.y) - image1(x,y));
 			}
 		}
 
