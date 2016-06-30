@@ -4,6 +4,7 @@
 #include <algorithm>
 #include "gaussianpyramid.hpp"
 #include "point.hpp"
+#include <tuple>
 
 using namespace cimg_library;
 
@@ -261,6 +262,11 @@ public:
 				if (minEigenValues.m[x][y] <= threshold)
 				{
 					minEigenValues.m[x][y] = 0.0;
+					pointInArray p = pointInArrayFunction(points, (double) x, (double) y);
+					if (p.inArray)
+					{
+						points.erase(points.begin() + p.position - 1);
+					}
 				}
 			}
 		}
@@ -382,25 +388,17 @@ public:
 			minEigenValues.m[x+1][y-1], minEigenValues.m[x+1][y], minEigenValues.m[x+1][y+1]};
 
 		double * maxValue = std::max_element(myEigen, myEigen+9);
-		
-		if (*maxValue > minEigenValues.m[x-1][y-1])
-			minEigenValues.m[x-1][y-1] = 0.0;
-		if (*maxValue > minEigenValues.m[x-1][y])
-			minEigenValues.m[x-1][y] = 0.0;
-		if (*maxValue > minEigenValues.m[x-1][y+1])
-			minEigenValues.m[x-1][y+1] = 0.0;
-		if (*maxValue > minEigenValues.m[x][y-1])
-			minEigenValues.m[x][y-1] = 0.0;
-		if (*maxValue > minEigenValues.m[x][y])
-			minEigenValues.m[x][y] = 0.0;
-		if (*maxValue > minEigenValues.m[x][y+1])
-			minEigenValues.m[x][y+1] = 0.0;
-		if (*maxValue > minEigenValues.m[x+1][y-1])
-			minEigenValues.m[x+1][y-1] = 0.0;
-		if (*maxValue > minEigenValues.m[x+1][y])
-			minEigenValues.m[x+1][y] = 0.0;
-		if (*maxValue > minEigenValues.m[x+1][y+1])
-			minEigenValues.m[x+1][y+1] = 0.0;
+		std::tuple<int, int> tuples[9] = { std::make_tuple(x-1, y-1), std::make_tuple(x-1, y), std::make_tuple(x-1, y+1),
+								           std::make_tuple(x, y-1), std::make_tuple(x, y), std::make_tuple(x-1, y+1),
+								           std::make_tuple(x+1, y-1), std::make_tuple(x+1, y), std::make_tuple(x+1, y+1)};
+
+		for (int i = 0; i < 9; i++)
+		{
+			if (*maxValue > minEigenValues.m[std::get<0>(tuples[i])][std::get<1>(tuples[i])] &&  minEigenValues.m[std::get<0>(tuples[i])][std::get<1>(tuples[i])] > 0.0)
+			{
+				 minEigenValues.m[std::get<0>(tuples[i])][std::get<1>(tuples[i])] = 0.0;
+			}	
+		}						           
 	}
 
 	matrix applyGaussianWeightsA (matrix ix, matrix iy, int x, int y)
