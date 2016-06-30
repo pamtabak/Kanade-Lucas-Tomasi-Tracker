@@ -1,7 +1,7 @@
 #include "libs/CImg.h"
 #include <iostream>
 #include <vector>
-#include <algorithm>    // std::min_element, std::max_element
+#include <algorithm>
 #include "gaussianpyramid.hpp"
 #include "point.hpp"
 
@@ -31,6 +31,7 @@ public:
 	{
 		delete allA;
 		delete allB;
+		delete minEigenValues.m;
 	}
 
 	void initArrays(int width, int height)
@@ -44,46 +45,6 @@ public:
 			allB[i] = new matrix[height];
 		}
 	}
-
-	// void algorithm (std::vector<CImg<double> > images)
-	// {
-	// 	CImg<double> image1 = images[0];
-	// 	CImg<double> image2 = images[1];
-
-	// 	int height    = image1.height();
-	// 	int width     = image1.width();
-
-	// 	std::vector<CImg<double> > derived = derive(image1);
-	// 	CImg<double> ix = derived[0];
-	// 	CImg<double> iy = derived[1];
-
-	// 	CImg<double> it = getIt(image1, image2);
-
-	// 	minEigenValues.assign(width,height,depth,channel,0);
-		
-	// 	initArrays(width, height);
-
-	// 	getMatrixes(width, height, ix, iy, it);
-
-	// 	const unsigned char white[] = { 255,255,255 };
-	// 	double xf = 0.0;
-	// 	double yf = 0.0;
-	// 	int times = 0;
-	// 	for (int x = 1; x < width - 1; x++)
-	// 	{
-	// 		for (int y = 1; y < height - 1; y++)
-	// 		{
-	// 			if (minEigenValues(x,y) > 0.0)
-	// 			{
-	// 				// CHOSEN POINT! Calculating vector
-	// 				CImg<double> v = ((allA[x][y].get_transpose() * allA[x][y]).get_invert())*allA[x][y].get_transpose()*allB[x][y];
-	// 				image1.draw_line(x, y ,x + (int) v(0,0),y + (int) v(0,1), white);
-	// 			}
-	// 		}
-	// 	}
-
-	// 	image1.display();
-	// }
 
 	pointInArray pointInArrayFunction(std::vector<ChosenPoint> points, double pointX, double pointY)
 	{
@@ -108,9 +69,24 @@ public:
 
 		images[0].save("images/output/Segments/piramide.png", 0);
 
-		// std::vector<ChosenPoint> points;
+		const int height    = images[0].height();
+		const int width     = images[0].width();
+
+		minEigenValues.m = new double*[width];
+		for (int i = 0; i < width; i++)
+		{
+			minEigenValues.m[i] = new double[height];
+			for (int j = 0; j < height; j++)
+			{
+				minEigenValues.m[i][j] = 0.0;
+			}
+		}
+
+		initArrays(width, height);
+
 		for (int frame = 0; frame < numberOfFrames; frame++)
 		{
+			std::cout << "Frame: " << frame << std::endl;
 			CImg<double> image1 = images[frame];
 			CImg<double> image2 = images[frame + 1];
 
@@ -122,37 +98,17 @@ public:
 			const unsigned char white[] = { 255,255,255 };
 			const unsigned char pink [] = { 255,0,255 };
 
-			const int height    = image1.height();
-			const int width     = image1.width();
-
 			matrix ix;
 			matrix iy;
 			matrix it;
+			
 			if (frame % 10 == 0)
 			{
-				// points.clear();
-
-				// we are only recalculating points to track in this case
-				// Calculating Ix and Iy for image1
-				std::vector<matrix> derived = derive(image1);
+				std::vector<matrix> derived = derive(image1, 0, width - 1, 0, height - 1);
 				ix                    = derived[0];
 				iy                    = derived[1];
 
-				// Calculating It, difference between image 1 and image 2
-				it = getIt(image1, image2); // We are not actually using this information at this point
-
-				// minEigenValues.assign(width,height,depth,channel,0); // Matrix that helps us decide which points should be chosen
-				minEigenValues.m = new double*[width];
-				for (int i = 0; i < width; i++)
-				{
-					minEigenValues.m[i] = new double[height];
-					for (int j = 0; j < height; j++)
-					{
-						minEigenValues.m[i][j] = 0.0;
-					}
-				}
-
-				initArrays(width, height);
+				it = getIt(image1, image2, 0, width - 1, 0, height - 1);
 
 				getMatrixes(width, height, ix, iy, it);
 
@@ -175,65 +131,66 @@ public:
 						}
 					}
 				}
-
 				std::cout << points.size() << std::endl;
 			}
 
-			// Once the points are choosen from the original image, we build the pyramid
 			for (int level = pyramidSize - 1; level >= 0; level--)
 			{
-				std::cout << level << std::endl;
 				for (int p = 0; p < points.size(); p++)
 				{
-					int xOnLevel = points[p].getPoint().x / pow(2,level);
-					int YOnLevel = points[p].getPoint().y / pow(2,level);
+					double auxX = ((double) points[p].getPoint().x / pow(2,level));
+					double auxY = ((double) points[p].getPoint().y / pow(2,level));
 
-					if (xOnLevel > 0 && xOnLevel < pyramids[0][level].width() - 1 && YOnLevel > 0 && YOnLevel < pyramids[0][level].height() - 1)
+					point interpolatedPoint = bilinearInterpolation(auxX, auxY);
+					int xOnLevel = (int) interpolatedPoint.x;
+					int yOnLevel = (int) interpolatedPoint.y;
+
+					if ((xOnLevel) <= 0 || (xOnLevel >= (pyramids[0][level].width() - 1)) || (yOnLevel <= 0) || (yOnLevel >= (pyramids[0][level].height() - 1)))
 					{
-						double initialFlowX = 2*points[p].getFlow()[frame].x;
-						double initialFlowY = 2*points[p].getFlow()[frame].y;
+						// std::cout << "delete point" << std::endl;
+						// points.erase(points.begin() + p - 1);
+						points[p].updateFlow(0.0, 0.0, p);
+						continue;
+					}
 
-						std::vector<matrix> derived = derive(pyramids[0][level]);
-						
-						ix                    = derived[0];
-						iy                    = derived[1];
+					double initialFlowX = 2*points[p].getFlow()[frame].x;
+					double initialFlowY = 2*points[p].getFlow()[frame].y;
 
-						it = getIt(pyramids[0][level], pyramids[1][level], initialFlowX, initialFlowY);
+					std::vector<matrix> derived = derive(pyramids[0][level], xOnLevel - 1, xOnLevel + 1, yOnLevel - 1, yOnLevel + 1);
+					
+					ix = derived[0];
+					iy = derived[1];
 
-						// Calculating matrix A and B, at this point
-						matrix a = applyGaussianWeightsA(ix, iy, xOnLevel, YOnLevel);
-						matrix b = applyGaussianWeightsB(it, xOnLevel ,YOnLevel);
+					it = getIt(pyramids[0][level], pyramids[1][level], xOnLevel - 1, xOnLevel + 1, yOnLevel - 1, yOnLevel + 1 ,initialFlowX, initialFlowY);
 
-						matrix v = calculateFlow(a,b);
-						if (!std::isnan(v.m[0][0]) && !std::isnan(v.m[1][0]))
-						{
-							// just checking if everything went ok with all matrixes transformations
-							points[p].setFlow(v.m[0][0] + initialFlowX, v.m[1][0] + initialFlowY, frame);
-						}
-						else
-						{
-							points.erase(points.begin() + p - 1);
-						}
+					matrix a = applyGaussianWeightsA(ix, iy, xOnLevel, yOnLevel);
+					matrix b = applyGaussianWeightsB(it, xOnLevel ,yOnLevel);
 
-						delete v.m;
-						delete a.m;
-						delete b.m;
+					matrix v = calculateFlow(a,b);
+					if (!std::isnan(v.m[0][0]) && !std::isnan(v.m[1][0]))
+					{
+						// just checking if everything went ok with all matrixes transformations
+						points[p].setFlow(v.m[0][0] + initialFlowX, v.m[1][0] + initialFlowY, frame);
 					}
 					else
 					{
-						// points[p].updateFlow(0.0, 0.0, frame);
 						points.erase(points.begin() + p - 1);
 					}
+
+					delete v.m;
+					delete a.m;
+					delete b.m;
 				}
 			}
 
 			for (int p = 0; p < points.size(); p++)
 			{
-				points[p].setPoint(points[p].getPoint().x + points[p].getFlow()[frame].x, points[p].getPoint().y + points[p].getFlow()[frame].y);
-				if (points[p].getFlow()[frame].x > 0.0 || points[p].getFlow()[frame].y > 0.0)
-				{
-					double finalX = points[p].getPoint().x - points[p].getFlow()[frame].x;
-					double finalY = points[p].getPoint().y - points[p].getFlow()[frame].y;
+				// points[p].setPoint(points[p].getPoint().x + points[p].getFlow()[frame].x, points[p].getPoint().y + points[p].getFlow()[frame].y);
+				points[p].setPoint(points[p].getPoint().x - points[p].getFlow()[frame].x, points[p].getPoint().y - points[p].getFlow()[frame].y);
+				// if (points[p].getFlow()[frame].x > 0.0 || points[p].getFlow()[frame].y > 0.0)
+				// {
+					double finalX    = points[p].getPoint().x - points[p].getFlow()[frame].x;
+					double finalY    = points[p].getPoint().y - points[p].getFlow()[frame].y;
 					point finalPoint = bilinearInterpolation(finalX, finalY);
 
 					double initFlowX = points[p].getPoint().x;
@@ -256,11 +213,10 @@ public:
 					{
 						image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
 					}
-				}
+				// }
 			}
 			image2.save("images/output/Segments/piramide.png", frame + 1);
 
-			// delete minEigenValues.m;
 			// delete ix.m;
 			// delete iy.m;
 			// delete it.m;
@@ -302,7 +258,6 @@ public:
 		{
 			for (int y = 1; y < height - 1; y++)
 			{
-				// Choosing possible points to be tracked
 				if (minEigenValues.m[x][y] <= threshold)
 				{
 					minEigenValues.m[x][y] = 0.0;
@@ -340,8 +295,7 @@ public:
 		return transpose;
 	}
 
-	// knowing it`s a 2x2 matrix
-	matrix getInvert (matrix a)
+	matrix getInvert2x2 (matrix a)
 	{
 		matrix invert;
 		invert.m    = new double*[2];
@@ -361,9 +315,9 @@ public:
 	matrix calculateFlow (matrix a, matrix b)
 	{
 		matrix aTranspose = getTranspose(a, 9, 2);
-		matrix aTa = multiplyMatrix(aTranspose,a,2,2,9);
+		matrix aTa        = multiplyMatrix(aTranspose,a,2,2,9);
 
-		matrix ataInvert = getInvert(aTa);
+		matrix ataInvert  = getInvert2x2(aTa);
 
 		matrix ataInvertATranpose = multiplyMatrix(ataInvert, aTranspose,2,9,2);
 		matrix answer = multiplyMatrix(ataInvertATranpose, b,2,1,9);
@@ -376,7 +330,7 @@ public:
 		return answer;
 	}
 
-	matrix multiplyMatrix(matrix a, matrix b, int widthA, int heightB, int heightA)
+	matrix multiplyMatrix(matrix a, matrix b, int widthA, int heightB, int inCommon)
 	{
 		matrix answer;
 		answer.m = new double*[widthA];
@@ -389,7 +343,7 @@ public:
 		{
 			for (int y = 0; y < heightB; y++)
 			{
-				for (int z = 0; z < heightA; z++)
+				for (int z = 0; z < inCommon; z++)
 				{
 					answer.m[x][y] += a.m[x][z]*b.m[z][y];
 				}
@@ -457,33 +411,23 @@ public:
 		{
 			a.m[i] = new double[2];	
 		}
-		
-		a.m[1] = new double[9];
 
 		a.m[0][0] = ix.m[x-1][y-1]/16;
 		a.m[0][1] = iy.m[x-1][y-1]/16;
-
 		a.m[1][0] = 2 * ix.m[x][y-1]/16;
 		a.m[1][1] = 2 * iy.m[x][y-1]/16;
-
 		a.m[2][0] = ix.m[x+1][y-1]/16;
 		a.m[2][1] = iy.m[x+1][y-1]/16;
-
 		a.m[3][0] = 2 * ix.m[x-1][y]/16;
 		a.m[3][1] = 2 * iy.m[x-1][y]/16;
-
 		a.m[4][0] = 4 * ix.m[x][y]/16; // current pixel
 		a.m[4][1] = 4 * iy.m[x][y]/16; // current pixel
-
 		a.m[5][0] = 2 * ix.m[x+1][y]/16;
 		a.m[5][1] = 2 * iy.m[x+1][y]/16;
-
 		a.m[6][0] = ix.m[x-1][y+1]/16;
 		a.m[6][1] = iy.m[x-1][y+1]/16;
-
 		a.m[7][0] = 2 * ix.m[x][y+1]/16;
 		a.m[7][1] = 2 * iy.m[x][y+1]/16;
-
 		a.m[8][0] = ix.m[x+1][y+1]/16;
 		a.m[8][1] = iy.m[x+1][y+1]/16;
 
@@ -492,7 +436,6 @@ public:
 
 	matrix applyGaussianWeightsB (matrix it, int x, int y)
 	{
-		// CImg<double> b(1, 9,depth,channel,initValue);
 		matrix b;
 		b.m = new double*[9];
 		for (int i = 0; i < 9; i++)
@@ -500,23 +443,14 @@ public:
 			b.m[i] = new double[1];	
 		}
 		
-
 		b.m[0][0] = it.m[x-1][y-1]/16;
-
 		b.m[1][0] = 2 * it.m[x][y-1]/16;
-
 		b.m[2][0] = it.m[x+1][y-1]/16;
-
 		b.m[3][0] = 2 * it.m[x-1][y]/16;
-
 		b.m[4][0] = 4 * it.m[x][y]/16; // current pixel
-
 		b.m[5][0] = 2 * it.m[x+1][y]/16;
-
 		b.m[6][0] = it.m[x-1][y+1]/16;
-
 		b.m[7][0] = 2 * it.m[x][y+1]/16;
-
 		b.m[8][0] = it.m[x+1][y+1]/16;
 
 		return b;
@@ -524,19 +458,17 @@ public:
 
 	std::vector<std::vector<CImg<double> >> getGaussianPyramids(std::vector<CImg<double>> images)
 	{
-		// Generating pyramid for each image.
 		GaussianPyramid gPyramid;
 		double filter[5] = {1.0/16, 4.0/16, 6.0/16, 4.0/16, 1.0/16};
 		gPyramid.generateFilter(filter);
 
-		// Generating pyramids
 		std::vector<std::vector<CImg<double> >> pyramids;
 		for (int i = 0; i < images.size(); i++)
 		{
 			std::vector<CImg<double> > gaussianPyramid;
 			gaussianPyramid.push_back(images[i]);
 			
-			CImg<double> reducedImage  = images[i]; // original image
+			CImg<double> reducedImage  = images[i];
 			for (int p = 1; p < pyramidSize; p++)
 			{
 				CImg<double> imageGenerated = gPyramid.reduce(reducedImage);
@@ -550,51 +482,22 @@ public:
 		return pyramids;
 	}
 
-	// Calculate It between two images
-	matrix getIt (CImg<double> image1, CImg<double> image2)
+	matrix getIt (CImg<double> image1, CImg<double> image2, int xFrom, int xTo, int yFrom, int yTo, double xFlow = 0.0, double yFlow = 0.0)
 	{
-		// Setting image`s attributes
 		int height    = image1.height();
 		int width     = image1.width();
 
-		// Initializing return object
 		matrix it;
 		it.m = new double*[width];
 
-		// Iterating over each pixel
-		for (int x = 0; x < width; x++)
+		for (int x = xFrom; x <= xTo; x++)
 		{
 			it.m[x] = new double[height];
-			for (int y = 0; y < height; y++)
+			for (int y = yFrom; y <= yTo; y++)
 			{
-				it.m[x][y] = - (image2(x,y) - image1(x,y));
-			}
-		}
-
-		return it;
-	}
-	
-	// Calculate It between two images, when working with pyramids
-	matrix getIt (CImg<double> image1, CImg<double> image2, double xFlow, double yFlow)
-	{
-		// Setting image`s attributes
-		int height = image1.height();
-		int width  = image1.width();
-
-		// Initializing return object
-		matrix it;
-		it.m = new double*[width];
-
-		// Iterating over each pixel
-		double newX, newY;
-		for (int x = 0; x < width; x++)
-		{
-			it.m[x] = new double[height];
-			for (int y = 0; y < height; y++)
-			{
-				newX = x + xFlow;
-				newY = y + yFlow;
-				if (newX < 0 || newX >= width || newY < 0 || newY >= height)
+				double image2x = x + xFlow;
+				double image2y = y + yFlow;
+				if (image2x < 0 || image2x >= width || image2y < 0 || image2y >= height)
 				{
 					pointInArray p = pointInArrayFunction(points, (double) x, (double) y);
 					if (p.inArray)
@@ -604,8 +507,8 @@ public:
 					it.m[x][y] = 0.0;
 					continue;
 				}
-
-				point newPoint = bilinearInterpolation(newX, newY);
+				
+				point newPoint = bilinearInterpolation(image2x, image2y);
 				if (newPoint.y == height || newPoint.x == width)
 				{
 					pointInArray p = pointInArrayFunction(points, (double) x, (double) y);
@@ -654,13 +557,10 @@ public:
 			return d;
 	}
 
-	// Calculate image`s derived
-	std::vector<matrix> derive (CImg<double> image)
+	std::vector<matrix> derive (CImg<double> image, int xFrom, int xTo, int yFrom, int yTo)
 	{
-		// Initilazing return object		
 		std::vector<matrix > derived;
 
-		// Setting image`s attributes
 		int height    = image.height();
 		int width     = image.width();
 
@@ -670,11 +570,11 @@ public:
 		ix.m = new double*[width];
 		iy.m = new double*[width];
 
-		for (int x = 0; x < width; x++)
+		for (int x = xFrom; x <= xTo; x++)
 		{
 			ix.m[x] = new double[height];
 			iy.m[x] = new double[height];
-			for (int y = 0; y < height; y++)
+			for (int y = yFrom; y <= yTo; y++)
 			{
 				if (x == 0 || x == (width - 1) || y == 0 || y == (height - 1))
 				{

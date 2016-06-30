@@ -2,6 +2,7 @@ typedef struct point
 {
 	double x;
 	double y;
+	bool isValid;
 } point;
 
 class ChosenPoint 
