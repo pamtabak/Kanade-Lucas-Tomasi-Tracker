@@ -40,10 +40,18 @@ public:
 		allA = new matrix*[width];
 		allB = new matrix*[width];
 
+		minEigenValues.m = new double*[width];
+
 		for (int i = 0; i < width; i++)
 		{
 			allA[i] = new matrix[height];
 			allB[i] = new matrix[height];
+
+			minEigenValues.m[i] = new double[height];
+			for (int j = 0; j < height; j++)
+			{
+				minEigenValues.m[i][j] = 0.0;
+			}
 		}
 	}
 
@@ -70,24 +78,15 @@ public:
 
 		images[0].save("images/output/Segments/piramide.png", 0);
 
-		const int height    = images[0].height();
-		const int width     = images[0].width();
-
-		minEigenValues.m = new double*[width];
-		for (int i = 0; i < width; i++)
-		{
-			minEigenValues.m[i] = new double[height];
-			for (int j = 0; j < height; j++)
-			{
-				minEigenValues.m[i][j] = 0.0;
-			}
-		}
+		int height    = images[0].height();
+		int width     = images[0].width();
 
 		initArrays(width, height);
 
 		for (int frame = 0; frame < numberOfFrames; frame++)
 		{
 			std::cout << "Frame: " << frame << std::endl;
+			
 			CImg<double> image1 = images[frame];
 			CImg<double> image2 = images[frame + 1];
 
@@ -148,7 +147,6 @@ public:
 
 					if ((xOnLevel) <= 0 || (xOnLevel >= (pyramids[0][level].width() - 1)) || (yOnLevel <= 0) || (yOnLevel >= (pyramids[0][level].height() - 1)))
 					{
-						// std::cout << "delete point" << std::endl;
 						// points.erase(points.begin() + p - 1);
 						points[p].updateFlow(0.0, 0.0, p);
 						continue;
@@ -188,39 +186,44 @@ public:
 			{
 				// points[p].setPoint(points[p].getPoint().x + points[p].getFlow()[frame].x, points[p].getPoint().y + points[p].getFlow()[frame].y);
 				points[p].setPoint(points[p].getPoint().x - points[p].getFlow()[frame].x, points[p].getPoint().y - points[p].getFlow()[frame].y);
-				// if (points[p].getFlow()[frame].x > 0.0 || points[p].getFlow()[frame].y > 0.0)
-				// {
-					double finalX    = points[p].getPoint().x - points[p].getFlow()[frame].x;
-					double finalY    = points[p].getPoint().y - points[p].getFlow()[frame].y;
-					point finalPoint = bilinearInterpolation(finalX, finalY);
+				
+				double finalX    = points[p].getPoint().x - points[p].getFlow()[frame].x;
+				double finalY    = points[p].getPoint().y - points[p].getFlow()[frame].y;
+				point finalPoint = bilinearInterpolation(finalX, finalY);
 
-					double initFlowX = points[p].getPoint().x;
-					double initFlowY = points[p].getPoint().y;
-					double lastFlowX = finalPoint.x;
-					double lastFlowY = finalPoint.y;
-					
-					if (frame >= 10)
-					{
-						for (int f = frame - 1; f >= frame - 10; f--)
-						{
-							image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
-							initFlowX = lastFlowX;
-							initFlowY = lastFlowY;
-							lastFlowX = lastFlowX - points[p].getFlow()[f].x;
-							lastFlowY = lastFlowY - points[p].getFlow()[f].y;
-						}
-					}
-					else
+				double initFlowX = points[p].getPoint().x;
+				double initFlowY = points[p].getPoint().y;
+				double lastFlowX = finalPoint.x;
+				double lastFlowY = finalPoint.y;
+				
+				if (frame >= 30)
+				{
+					for (int f = frame - 1; f >= frame - 30; f--)
 					{
 						image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
+						initFlowX = lastFlowX;
+						initFlowY = lastFlowY;
+						lastFlowX = lastFlowX - points[p].getFlow()[f].x;
+						lastFlowY = lastFlowY - points[p].getFlow()[f].y;
 					}
-				// }
+				}
+				else
+				{
+					for (int f = frame - 1; f >= 0; f--)
+					{
+						image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
+						initFlowX = lastFlowX;
+						initFlowY = lastFlowY;
+						lastFlowX = lastFlowX - points[p].getFlow()[f].x;
+						lastFlowY = lastFlowY - points[p].getFlow()[f].y;
+					}					
+				}
 			}
 			image2.save("images/output/Segments/piramide.png", frame + 1);
 
-			// delete ix.m;
-			// delete iy.m;
-			// delete it.m;
+			delete ix.m;
+			delete iy.m;
+			delete it.m;
 		}
 	}
 
@@ -326,7 +329,7 @@ public:
 		matrix ataInvert  = getInvert2x2(aTa);
 
 		matrix ataInvertATranpose = multiplyMatrix(ataInvert, aTranspose,2,9,2);
-		matrix answer = multiplyMatrix(ataInvertATranpose, b,2,1,9);
+		matrix answer             = multiplyMatrix(ataInvertATranpose, b,2,1,9);
 		
 		delete aTranspose.m;
 		delete aTa.m;
@@ -396,7 +399,12 @@ public:
 		{
 			if (*maxValue > minEigenValues.m[std::get<0>(tuples[i])][std::get<1>(tuples[i])] &&  minEigenValues.m[std::get<0>(tuples[i])][std::get<1>(tuples[i])] > 0.0)
 			{
-				 minEigenValues.m[std::get<0>(tuples[i])][std::get<1>(tuples[i])] = 0.0;
+				minEigenValues.m[std::get<0>(tuples[i])][std::get<1>(tuples[i])] = 0.0;
+				pointInArray p = pointInArrayFunction(points, (double) x, (double) y);
+				if (p.inArray)
+				{
+					points.erase(points.begin() + p.position - 1);
+				}
 			}	
 		}						           
 	}
