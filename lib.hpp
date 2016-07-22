@@ -13,11 +13,6 @@
 using namespace cimg_library;
 using namespace Eigen;
 
-// typedef struct matrix
-// {
-// 	double **m;
-// } matrix;
-
 class Tracking
 {
 public:
@@ -40,6 +35,7 @@ public:
 		MatrixXd ix(width, height);
 		MatrixXd iy(width, height);
 		MatrixXd it(width, height);
+		MatrixXd minEigenValue(width, height);
 
 		int numberOfFrames = images.size() - 1;
 		images[0].save("images/output/Segments/piramide.png", 0);
@@ -60,6 +56,19 @@ public:
 			if (frame % 10 == 0)
 			{
 				// recalculate points to be tracked
+				point from, to, flow;
+				from.x = 0.0;
+				from.y = 0.0;
+				to.x   = width  - 1;
+				to.y   = height - 1;
+				flow.x = 0.0;
+				flow.y = 0.0;
+
+				calculateIxAndIy(image1, from, to, ix, iy);
+				calculateIt(image1, image2, from, to, flow, it);
+
+				// maxMinEigenValue = 0.0;
+				calculateMinEigenValue(ix, it, iy, minEigenValue);
 			}
 
 			for (int level = pyramidSize - 1; level >= 0; level--)
@@ -111,6 +120,102 @@ public:
 				it(x,y) = - (image2(p.x, p.y) - image1(x,y));
 			}
 		}
+	}
+
+	void calculateMinEigenValue (MatrixXd &ix, MatrixXd &iy, MatrixXd &it, MatrixXd &minEigenValue)
+	{
+		for (int x = 1; x < width - 1; x++)
+		{
+			for (int y = 1; y < height - 1; y++)
+			{
+				MatrixXd a = calculateA(ix, iy, x, y);
+				MatrixXd b = calculateB(it, x, y);
+
+				MatrixXd aTa = a.transpose() * a;
+				// EigenSolver<MatrixXd> es(aTa);
+				double lambda0 = getMinEigenValue2x2(aTa(0,0), aTa(0,1), aTa(1,0), aTa(1,1));
+				if (lambda0 > 0)
+				{
+					minEigenValues(x,y) = lambda0;
+					if (lambda0 > maxMinEigenValue)
+					{
+						maxMinEigenValue = lambda0;
+					}	
+				}
+
+				// std::cout << es.eigenvalues() << std::endl;
+				// double lambda0 = es.eigenvalues();
+			}
+		}
+
+		// THRESHOLD
+
+		// CLEANING MINEIGENVALUE
+	}
+
+	double getMinEigenValue2x2(double& matA, double& matB, double& matC, double& matD) {
+	    double b = matA+matD;
+	    double c = matA*matD - matB*matC;
+
+	    //b^2 - 4ac, where a=1.0
+	    const double delta = b*b - 4*c;
+	    if (delta < 0)
+	        return -1.0;
+
+	    double ev1 = 0.0;
+	    double ev2 = 0.0;
+	    double sqrtDelta = std::sqrt(delta);
+	    
+	    ev1 = b - sqrtDelta;
+	    ev2 = b + sqrtDelta;
+
+	    ev1 *= 0.5;
+	    ev2 *= 0.5;
+
+	    return std::min(ev1, ev2);
+	}
+
+	MatrixXd calculateA (MatrixXd &ix, MatrixXd &iy, int x, int y)
+	{
+		MatrixXd a(9,2);
+
+		a(0,0) = 1 * ix(x-1,y-1)/16;
+		a(0,1) = 1 * iy(x-1,y-1)/16;
+		a(1,0) = 2 * ix(x,y-1)/16;
+		a(1,1) = 2 * iy(x,y-1)/16;
+		a(2,0) = 1 * ix(x+1,y-1)/16;
+		a(2,1) = 1 * iy(x+1,y-1)/16;
+		a(3,0) = 2 * ix(x-1,y)/16;
+		a(3,1) = 2 * iy(x-1,y)/16;
+		a(4,0) = 4 * ix(x,y)/16; // current pixel
+		a(4,1) = 4 * iy(x,y)/16; // current pixel
+		a(5,0) = 2 * ix(x+1,y)/16;
+		a(5,1) = 2 * iy(x+1,y)/16;
+		a(6,0) = 1 * ix(x-1,y+1)/16;
+		a(6,1) = 1 * iy(x-1,y+1)/16;
+		a(7,0) = 2 * ix(x,y+1)/16;
+		a(7,1) = 2 * iy(x,y+1)/16;
+		a(8,0) = 1 * ix(x+1,y+1)/16;
+		a(8,1) = 1 * iy(x+1,y+1)/16;
+
+		return a;
+	}
+
+	MatrixXd calculateB (MatrixXd &it, int x, int y)
+	{
+		MatrixXd b(9,1);
+
+		b(0,0) = 1 * it(x-1,y-1)/16;
+		b(1,0) = 2 * it(x,y-1)/16;
+		b(2,0) = 1 * it(x+1,y-1)/16;
+		b(3,0) = 2 * it(x-1,y)/16;
+		b(4,0) = 4 * it(x,y)/16; // current pixel
+		b(5,0) = 2 * it(x+1,y)/16;
+		b(6,0) = 1 * it(x-1,y+1)/16;
+		b(7,0) = 2 * it(x,y+1)/16;
+		b(8,0) = 1 * it(x+1,y+1)/16;
+
+		return b;
 	}
 
 	point bilinearInterpolation(double x, double y)
@@ -175,4 +280,5 @@ private:
 	int width;
 	int height;
 	int pyramidSize = 4;
+	double maxMinEigenValue = 0.0;
 };
