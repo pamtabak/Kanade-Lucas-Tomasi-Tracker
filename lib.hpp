@@ -139,9 +139,11 @@ public:
 						MatrixXd a = calculateA(ix, iy, xOnLevel, yOnLevel);
 						MatrixXd b = calculateB(it, xOnLevel, yOnLevel);
 
-						MatrixXd aT = a.transpose();
+						MatrixXd aT      = a.transpose();
+						MatrixXd aTa     = aT * a; 
+						MatrixXd inverse = aTa.inverse();
 
-						Matrix<double, 2, 1> v = (aT * a).inverse() * aT * b;
+						MatrixXd v = inverse * aT * b;
 						if (v.rows() == 2 && v.cols() == 1)
 						{
 							// std::cout << v(0,0) << "," << v(1,0) << std::endl;
