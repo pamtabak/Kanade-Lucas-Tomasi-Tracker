@@ -30,16 +30,11 @@ public:
 		}
 	}
 
-	void setPoint(int x, int y)
+	void setPoint(int x, int y, bool isValid)
 	{
 		this->pt.x = (double) x;
 		this->pt.y = (double) y;
-	}
-
-	void setInitialPoint(int x, int y)
-	{
-		this->initialPoint.x = (double) x;
-		this->initialPoint.y = (double) y;
+		this->pt.isValid = isValid;
 	}
 
 	point getPoint()
@@ -47,17 +42,12 @@ public:
 		return this->pt;
 	}
 
-	point getInitialPoint()
-	{
-		return this->initialPoint;
-	}
-
 	point* getFlow()
 	{
 		return this->flow;
 	}
 
-	void setFlow(double xFlow, double yFlow, int position)
+	void setFlow(double &xFlow, double &yFlow, int &position)
 	{
 		this->flow[position].x = xFlow;
 		this->flow[position].y = yFlow;
@@ -75,7 +65,6 @@ public:
 		this->flow[position].y = yFlow;
 	}
 
-	point initialPoint;
 	point pt;
 	point *flow;
 };

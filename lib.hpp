@@ -31,6 +31,8 @@ public:
 		// Initializing variables
 		width  = images[0].width();
 		height = images[0].height();
+
+		const unsigned char pink [] = { 255,0,255 };
 		
 		MatrixXd ix(width, height);
 		MatrixXd iy(width, height);
@@ -40,8 +42,18 @@ public:
 		int numberOfFrames = images.size() - 1;
 		images[0].save("images/output/Segments/piramide.png", 0);
 
-		for (int frame = 0; frame < 1; frame++)
-		// for (int frame = 0; frame < numberOfFrames; frame++)
+		ChosenPoint ** points = new ChosenPoint*[width];
+		for (int i = 0; i < width; i++)
+		{
+			points[i] = new ChosenPoint[height];
+			for (int j = 0; j < height; j++)
+			{
+				points[i][j].setPoint(i, j, false);
+				points[i][j].setNumberOfFrames(numberOfFrames);
+			}
+		}
+
+		for (int frame = 0; frame < numberOfFrames; frame++)
 		{
 			// DO THE MAGIC!
 
@@ -67,15 +79,107 @@ public:
 				calculateIxAndIy(image1, from, to, ix, iy);
 				calculateIt(image1, image2, from, to, flow, it);
 
-				// maxMinEigenValue = 0.0;
 				calculateMinEigenValue(ix, it, iy, minEigenValue);
+
+				for (int y = 1; y < height - 1; y++)
+				{
+					for (int x = 1; x < width - 1; x++)
+					{
+						// Verify if point is already inside array
+						if (minEigenValue(x, y) > 0.0)
+						{
+							points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, true);
+						}
+						else
+						{
+							points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);	
+						}
+					}
+				}
 			}
 
 			for (int level = pyramidSize - 1; level >= 0; level--)
 			{
 				// Calculate flow
+				for (int y = 1; y < height - 1; y++)
+				{
+					for (int x = 1; x < width - 1; x++)
+					{
+						if (!points[x][y].getPoint().isValid)
+						{
+							continue;
+						}
+
+						double auxX = (double) points[x][y].getPoint().x / pow (2, level);
+						double auxY = (double) points[x][y].getPoint().y / pow (2, level);
+						
+						point interpolatedPoint = bilinearInterpolation(auxX, auxY);
+						int xOnLevel            = interpolatedPoint.x;
+						int yOnLevel            = interpolatedPoint.y;
+
+						// Verify if pixel is outside image
+						if (xOnLevel == 0 || xOnLevel == (image1pyramids[level].width() - 1) || yOnLevel == 0 || yOnLevel == (image1pyramids[level].height() - 1))
+						{
+							points[x][y].updateFlow(0.0, 0.0, frame);
+							points[x][y].setPoint(x, y, false);
+							continue;
+						}
+
+						point from, to, flow;
+						from.x = xOnLevel - 1;
+						from.y = yOnLevel - 1;
+						to.x   = xOnLevel + 1;
+						to.y   = yOnLevel + 1;
+						flow.x = 2 * points[x][y].getFlow()[frame].x;
+						flow.y = 2 * points[x][y].getFlow()[frame].y;
+
+						calculateIxAndIy(image1pyramids[level], from, to, ix, iy);
+						calculateIt(image1pyramids[level], image2pyramids[level], from, to, flow, it);
+
+						MatrixXd a = calculateA(ix, iy, xOnLevel, yOnLevel);
+						MatrixXd b = calculateB(it, xOnLevel, yOnLevel);
+
+						MatrixXd aT = a.transpose();
+
+						Matrix<double, 2, 1> v = (aT * a).inverse() * aT * b;
+						if (v.rows() == 2 && v.cols() == 1)
+						{
+							// std::cout << v(0,0) << "," << v(1,0) << std::endl;
+							// points[x][y].setFlow(finalX, finalY, frame);
+							points[x][y].setFlow(v(0,0), v(1,0), frame);
+						}
+						else
+						{
+							points[x][y].updateFlow(0.0, 0.0, frame);
+							points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);
+						}
+					}
+				}
 			}
+
+			// Draw
+			for (int y = 1; y < height - 1; y++)
+			{
+				for (int x = 1; x < width - 1; x++)
+				{
+					if (points[x][y].getPoint().isValid)
+					{
+						// bilinear interpolation
+						point finalPoint = bilinearInterpolation(points[x][y].getPoint().x + points[x][y].getFlow()[frame].x, points[x][y].getPoint().y + points[x][y].getFlow()[frame].y);
+						image2.draw_line(points[x][y].getPoint().x, points[x][y].getPoint().y, finalPoint.x, finalPoint.y, pink);
+						points[x][y].setPoint(finalPoint.x, finalPoint.y, true);
+					}
+				}
+			}
+			// image2.display();
+			image2.save("images/output/Segments/piramide.png", frame + 1);
 		}
+
+		for (int i = 0; i < height; i++)
+		{
+			delete [] points[i];
+		}
+		delete [] points;
 	}
 
 	void calculateIxAndIy (CImg<double> image, point from, point to, MatrixXd &ix, MatrixXd &iy)
@@ -104,13 +208,12 @@ public:
 		{
 			for (int y = from.y; y <= to.y; y++)
 			{
-				int finalX = x + flow.x;
-				int finalY = y + flow.y;
+				double finalX = x + flow.x;
+				double finalY = y + flow.y;
 
 				if ((finalX < 0) || (finalX >= width) || (finalY < 0) || (finalY >= height))
 				{
-					// point is outside image. 
-					// Decide what to do
+					// points[x][y].setPoint(x, y, false); // ?
 					it(x,y) = 0.0; // Is this correct?
 					continue;
 				}
@@ -122,8 +225,9 @@ public:
 		}
 	}
 
-	void calculateMinEigenValue (MatrixXd &ix, MatrixXd &iy, MatrixXd &it, MatrixXd &minEigenValue)
+	void calculateMinEigenValue (MatrixXd &ix, MatrixXd &iy, MatrixXd &it, MatrixXd &minEigenValues)
 	{
+		// maxMinEigenValue = 0.0;
 		for (int x = 1; x < width - 1; x++)
 		{
 			for (int y = 1; y < height - 1; y++)
@@ -132,33 +236,47 @@ public:
 				MatrixXd b = calculateB(it, x, y);
 
 				MatrixXd aTa = a.transpose() * a;
-				// EigenSolver<MatrixXd> es(aTa);
 				double lambda0 = getMinEigenValue2x2(aTa(0,0), aTa(0,1), aTa(1,0), aTa(1,1));
-				if (lambda0 > 0)
+				if (lambda0 > 0.0)
 				{
 					minEigenValues(x,y) = lambda0;
 					if (lambda0 > maxMinEigenValue)
 					{
 						maxMinEigenValue = lambda0;
-					}	
-				}
-
-				// std::cout << es.eigenvalues() << std::endl;
-				// double lambda0 = es.eigenvalues();
+					}
+				}				
 			}
 		}
 
 		// THRESHOLD
+		double threshold = 0.1*maxMinEigenValue;
+		for (int y = 1; y < height - 1; y++)
+		{
+			for (int x = 1; x < width - 1; x++)
+			{
+				if (minEigenValues(x,y) < threshold)
+				{
+					minEigenValues(x,y) = 0.0;
+				}
+			}
+		}
 
 		// CLEANING MINEIGENVALUE
+		for (int x = 1; x < width - 1; x++)
+		{
+			for (int y = 1; y < height - 1; y++)
+			{
+				reducingAmountOfPointsToTrack (x, y, minEigenValues);
+			}
+		}
 	}
 
-	double getMinEigenValue2x2(double& matA, double& matB, double& matC, double& matD) {
-	    double b = matA+matD;
-	    double c = matA*matD - matB*matC;
+	double getMinEigenValue2x2(double& a00, double& a01, double& a10, double& a11) 
+	{
+	    double b = a00 + a11;
+	    double c = (a00 * a11) - (a01 * a10);
 
-	    //b^2 - 4ac, where a=1.0
-	    const double delta = b*b - 4*c;
+	    const double delta = pow(b, 2) - (4 * c);
 	    if (delta < 0)
 	        return -1.0;
 
@@ -173,6 +291,26 @@ public:
 	    ev2 *= 0.5;
 
 	    return std::min(ev1, ev2);
+	}
+
+	void reducingAmountOfPointsToTrack (int x, int y, MatrixXd &minEigenValues)
+	{
+		double myEigen[] = {minEigenValues(x-1,y-1), minEigenValues(x-1,y), minEigenValues(x-1,y+1),
+			                minEigenValues(x,y-1),   minEigenValues(x,y),   minEigenValues(x,y+1),
+			                minEigenValues(x+1,y-1), minEigenValues(x+1,y), minEigenValues(x+1,y+1)};
+
+		double * maxValue = std::max_element(myEigen, myEigen+9);
+		std::tuple<int, int> tuples[9] = { std::make_tuple(x-1, y-1), std::make_tuple(x-1, y), std::make_tuple(x-1, y+1),
+								           std::make_tuple(x, y-1), std::make_tuple(x, y), std::make_tuple(x-1, y+1),
+								           std::make_tuple(x+1, y-1), std::make_tuple(x+1, y), std::make_tuple(x+1, y+1)};
+
+		for (int i = 0; i < 9; i++)
+		{
+			if (*maxValue > minEigenValues(std::get<0>(tuples[i]),std::get<1>(tuples[i])) &&  minEigenValues(std::get<0>(tuples[i]),std::get<1>(tuples[i])) > 0.0)
+			{
+				minEigenValues(std::get<0>(tuples[i]),std::get<1>(tuples[i])) = 0.0;
+			}	
+		}		
 	}
 
 	MatrixXd calculateA (MatrixXd &ix, MatrixXd &iy, int x, int y)

@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 // #include "lucasKanade.hpp"
-#include "harrisdetector.hpp"
+// #include "harrisdetector.hpp"
 #include "lib.hpp"
 
 #define cimg_use_magick
@@ -36,7 +36,6 @@ int main(int argc, char * argv[])
 	tracking.lucasKanade(images);
 
 	// LucasKanade lucasKanade;
-	
 	// lucasKanade.pyramidAlgorithm(images);
 
 	return 0;
