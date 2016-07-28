@@ -92,7 +92,8 @@ public:
 						}
 						else
 						{
-							points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);	
+							// TESTAR com essa linha comentada!!!
+							// points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);	
 						}
 					}
 				}
@@ -100,6 +101,7 @@ public:
 
 			for (int level = pyramidSize - 1; level >= 0; level--)
 			{
+				// std::cout << "pyramid level:" << level << std::endl;
 				// Calculate flow
 				for (int y = 1; y < height - 1; y++)
 				{
@@ -110,8 +112,10 @@ public:
 							continue;
 						}
 
-						double auxX = (double) points[x][y].getPoint().x / pow (2, level);
-						double auxY = (double) points[x][y].getPoint().y / pow (2, level);
+						// double auxX = (double) points[x][y].getPoint().x / pow (2, level);
+						// double auxY = (double) points[x][y].getPoint().y / pow (2, level);
+						double auxX = (double) x / pow (2, level);
+						double auxY = (double) y / pow (2, level);
 						
 						point interpolatedPoint = bilinearInterpolation(auxX, auxY);
 						int xOnLevel            = interpolatedPoint.x;
@@ -142,6 +146,9 @@ public:
 						MatrixXd aT      = a.transpose();
 						MatrixXd aTa     = aT * a; 
 						MatrixXd inverse = aTa.inverse();
+
+						// std::cout << "point" << points[x][y].getPoint().x << "," << points[x][y].getPoint().y << std::endl;
+						// std::cout << "OnLevel" << xOnLevel << "," << yOnLevel << std::endl;
 
 						MatrixXd v = inverse * aT * b;
 						if (v.rows() == 2 && v.cols() == 1)
@@ -419,6 +426,6 @@ public:
 private:
 	int width;
 	int height;
-	int pyramidSize = 4;
+	int pyramidSize = 3;
 	double maxMinEigenValue = 0.0;
 };
