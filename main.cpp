@@ -19,7 +19,7 @@ int main(int argc, char * argv[])
 	// for (int i = 1; i <= 2; i++)
 	for (int i = 1; i <= 252; i++)
 	{
-		std::string fileName = "images/CarScale/";
+		std::string fileName = "images/input/CarScale/";
 		std::string numberOfFile = std::to_string(i);
 		for (int l = numberOfFile.size(); l < 4; l++)
 		{
