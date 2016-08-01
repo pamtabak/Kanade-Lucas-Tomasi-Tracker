@@ -1,4 +1,4 @@
-#undef Success 
+#undef Success // in order to make Eigen work
 
 #include <iostream>
 #include <vector>
@@ -7,8 +7,6 @@
 #include "libs/CImg.h"
 #include "point.hpp"
 #include "gaussianpyramid.hpp"
-
-
 
 using namespace cimg_library;
 using namespace Eigen;
@@ -53,10 +51,9 @@ public:
 			}
 		}
 
-		for (int frame = 0; frame < numberOfFrames; frame++)
+		for (int frame = 0; frame < 1; frame++)
+		// for (int frame = 0; frame < numberOfFrames; frame++)
 		{
-			// DO THE MAGIC!
-
 			std::cout << "Frame: " << frame << std::endl;
 			
 			CImg<double> image1 = images[frame];
@@ -85,22 +82,17 @@ public:
 				{
 					for (int x = 1; x < width - 1; x++)
 					{
-						// Verify if point is already inside array
 						if (minEigenValue(x, y) > 0.0)
 						{
 							points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, true);
-						}
-						else
-						{
-							// points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);	
 						}
 					}
 				}
 			}
 
+			// for (int level = 0; level >= 0; level--)
 			for (int level = pyramidSize - 1; level >= 0; level--)
 			{
-				// std::cout << "pyramid level:" << level << std::endl;
 				// Calculate flow
 				for (int y = 1; y < height - 1; y++)
 				{
@@ -139,17 +131,17 @@ public:
 						calculateIxAndIy(image1pyramids[level], from, to, ix, iy);
 						calculateIt(image1pyramids[level], image2pyramids[level], from, to, flow, it);
 
-						MatrixXd a = calculateA(ix, iy, xOnLevel, yOnLevel);
-						MatrixXd b = calculateB(it, xOnLevel, yOnLevel);
-
-						MatrixXd aT      = a.transpose();
-						MatrixXd aTa     = aT * a; 
+						MatrixXd aTa     = calculateAta(ix, iy, xOnLevel, yOnLevel);
+						MatrixXd aTb     = calculateAtB(ix, iy, it, xOnLevel, yOnLevel);
 						MatrixXd inverse = aTa.inverse();
 
-						MatrixXd v = inverse * aT * b;
+						MatrixXd v = inverse * aTb;
 						if (v.rows() == 2 && v.cols() == 1)
 						{
-							points[x][y].setFlow(v(0,0), v(1,0), frame);
+							flow.x += v(0,0);
+							flow.y += v(1.0);
+							points[x][y].setFlow(flow.x, flow.y, frame);
+
 							if (level == 0)
 							{
 								// DRAW
@@ -194,48 +186,6 @@ public:
 					}
 				}
 			}
-
-			// Draw
-			// for (int y = 1; y < height - 1; y++)
-			// {
-			// 	for (int x = 1; x < width - 1; x++)
-			// 	{
-			// 		if (points[x][y].getPoint().isValid)
-			// 		{
-
-			// 			double finalX    = points[x][y].getPoint().x - points[x][y].getFlow()[frame].x;
-			// 			double finalY    = points[x][y].getPoint().y - points[x][y].getFlow()[frame].y;
-			// 			point finalPoint = bilinearInterpolation(finalX, finalY);
-
-			// 			double initFlowX = points[x][y].getPoint().x;
-			// 			double initFlowY = points[x][y].getPoint().y;
-			// 			double lastFlowX = finalPoint.x;
-			// 			double lastFlowY = finalPoint.y;
-
-			// 			points[x][y].setPoint(finalPoint.x, finalPoint.y, true);
-
-			// 			int finalFrame;
-			// 			if (frame >= 30)
-			// 			{
-			// 				finalFrame = frame - 30;
-			// 			}
-			// 			else
-			// 			{
-			// 				finalFrame = 0;
-			// 			}
-
-			// 			for (int f = frame - 1; f >= finalFrame; f--)
-			// 			{
-			// 				image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
-			// 				initFlowX = lastFlowX;
-			// 				initFlowY = lastFlowY;
-			// 				lastFlowX = lastFlowX - points[x][y].getFlow()[f].x;
-			// 				lastFlowY = lastFlowY - points[x][y].getFlow()[f].y;
-			// 			}
-			// 		}
-			// 	}
-			// }
-			// image2.save("images/output/Segments/piramide.png", frame + 1);
 		}
 
 		for (int i = 0; i < height; i++)
@@ -295,10 +245,7 @@ public:
 		{
 			for (int y = 1; y < height - 1; y++)
 			{
-				MatrixXd a = calculateA(ix, iy, x, y);
-				MatrixXd b = calculateB(it, x, y);
-
-				MatrixXd aTa = a.transpose() * a;
+				MatrixXd aTa = calculateAta(ix, iy, x, y);
 				double lambda0 = getMinEigenValue2x2(aTa(0,0), aTa(0,1), aTa(1,0), aTa(1,1));
 				if (lambda0 > 0.0)
 				{
@@ -376,47 +323,60 @@ public:
 		}		
 	}
 
-	MatrixXd calculateA (MatrixXd &ix, MatrixXd &iy, int x, int y)
+	MatrixXd calculateAta (MatrixXd &ix, MatrixXd &iy, int x, int y)
 	{
-		MatrixXd a(9,2);
+		MatrixXd aTa(2,2);
+		aTa(0,0) = 0.0;
+		aTa(0,1) = 0.0;
+		aTa(1,0) = 0.0;
+		aTa(1,1) = 0.0;
 
-		a(0,0) = 1 * ix(x-1,y-1)/16;
-		a(0,1) = 1 * iy(x-1,y-1)/16;
-		a(1,0) = 2 * ix(x,y-1)/16;
-		a(1,1) = 2 * iy(x,y-1)/16;
-		a(2,0) = 1 * ix(x+1,y-1)/16;
-		a(2,1) = 1 * iy(x+1,y-1)/16;
-		a(3,0) = 2 * ix(x-1,y)/16;
-		a(3,1) = 2 * iy(x-1,y)/16;
-		a(4,0) = 4 * ix(x,y)/16; // current pixel
-		a(4,1) = 4 * iy(x,y)/16; // current pixel
-		a(5,0) = 2 * ix(x+1,y)/16;
-		a(5,1) = 2 * iy(x+1,y)/16;
-		a(6,0) = 1 * ix(x-1,y+1)/16;
-		a(6,1) = 1 * iy(x-1,y+1)/16;
-		a(7,0) = 2 * ix(x,y+1)/16;
-		a(7,1) = 2 * iy(x,y+1)/16;
-		a(8,0) = 1 * ix(x+1,y+1)/16;
-		a(8,1) = 1 * iy(x+1,y+1)/16;
+		double weight[3][3] = { { 1.0/16, 2.0/16, 1.0/16 }, { 2.0/16, 4.0/16, 2.0/16 }, { 1.0/16, 2.0/16, 1.0/16 } };
 
-		return a;
+		int iCount = 0;
+		for (int i = x - 1; i <= x + 1; i++)
+		{
+			int jCount = 0;
+			for (int j = y - 1; j <= y + 1; j++)
+			{
+				aTa(0,0) += ix(i,j) * ix(i,j) * weight[iCount][jCount];
+				aTa(0,1) += ix(i,j) * iy(i,j) * weight[iCount][jCount];
+				aTa(1,0) += ix(i,j) * iy(i,j) * weight[iCount][jCount];
+				aTa(1,1) += iy(i,j) * iy(i,j) * weight[iCount][jCount];
+				jCount++;
+			}
+			iCount++;
+		}
+
+		return aTa;
 	}
 
-	MatrixXd calculateB (MatrixXd &it, int x, int y)
+	MatrixXd calculateAtB (MatrixXd &ix, MatrixXd &iy, MatrixXd &it, int x, int y)
 	{
-		MatrixXd b(9,1);
+		MatrixXd aTb(2,1);
+		aTb(0,0) = 0.0;
+		aTb(1,0) = 0.0;
 
-		b(0,0) = 1 * it(x-1,y-1)/16;
-		b(1,0) = 2 * it(x,y-1)/16;
-		b(2,0) = 1 * it(x+1,y-1)/16;
-		b(3,0) = 2 * it(x-1,y)/16;
-		b(4,0) = 4 * it(x,y)/16; // current pixel
-		b(5,0) = 2 * it(x+1,y)/16;
-		b(6,0) = 1 * it(x-1,y+1)/16;
-		b(7,0) = 2 * it(x,y+1)/16;
-		b(8,0) = 1 * it(x+1,y+1)/16;
+		double weight[3][3] = { { 1.0/16, 2.0/16, 1.0/16 }, { 2.0/16, 4.0/16, 2.0/16 }, { 1.0/16, 2.0/16, 1.0/16 } };
 
-		return b;
+		int iCount = 0;
+		for (int i = x - 1; i <= x + 1; i++)
+		{
+			int jCount = 0;
+			for (int j = y - 1; j <= y + 1; j++)
+			{
+				aTb(0,0) += ix(i,j) * it(i,j) * weight[iCount][jCount];
+				aTb(1,0) += iy(i,j) * it(i,j) * weight[iCount][jCount];
+				jCount++;
+			}
+
+			aTb(0,0) = -1.0 * aTb(0,0);
+			aTb(1,0) = -1.0 * aTb(1,0);
+
+			iCount++;
+		}
+
+		return aTb;
 	}
 
 	point bilinearInterpolation(double x, double y)
