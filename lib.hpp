@@ -51,8 +51,8 @@ public:
 			}
 		}
 
-		for (int frame = 0; frame < 1; frame++)
-		// for (int frame = 0; frame < numberOfFrames; frame++)
+		// for (int frame = 0; frame < 1; frame++)
+		for (int frame = 0; frame < numberOfFrames; frame++)
 		{
 			std::cout << "Frame: " << frame << std::endl;
 			
@@ -86,6 +86,10 @@ public:
 						{
 							points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, true);
 						}
+						// else
+						// {
+						// 	points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);	
+						// }
 					}
 				}
 			}
@@ -98,90 +102,88 @@ public:
 				{
 					for (int x = 1; x < width - 1; x++)
 					{
-						if (!points[x][y].getPoint().isValid)
+						if (points[x][y].getPoint().isValid)
 						{
-							continue;
-						}
+							double auxX = (double) points[x][y].getPoint().x / pow (2, level);
+							double auxY = (double) points[x][y].getPoint().y / pow (2, level);
+							// double auxX = (double) x / pow (2, level);
+							// double auxY = (double) y / pow (2, level);
+							
+							point interpolatedPoint = bilinearInterpolation(auxX, auxY);
+							int xOnLevel            = interpolatedPoint.x;
+							int yOnLevel            = interpolatedPoint.y;
 
-						double auxX = (double) points[x][y].getPoint().x / pow (2, level);
-						double auxY = (double) points[x][y].getPoint().y / pow (2, level);
-						// double auxX = (double) x / pow (2, level);
-						// double auxY = (double) y / pow (2, level);
-						
-						point interpolatedPoint = bilinearInterpolation(auxX, auxY);
-						int xOnLevel            = interpolatedPoint.x;
-						int yOnLevel            = interpolatedPoint.y;
-
-						// Verify if pixel is outside image
-						if (xOnLevel == 0 || xOnLevel == (image1pyramids[level].width() - 1) || yOnLevel == 0 || yOnLevel == (image1pyramids[level].height() - 1))
-						{
-							points[x][y].updateFlow(0.0, 0.0, frame);
-							points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);
-							continue;
-						}
-
-						point from, to, flow;
-						from.x = xOnLevel - 1;
-						from.y = yOnLevel - 1;
-						to.x   = xOnLevel + 1;
-						to.y   = yOnLevel + 1;
-						flow.x = 2 * points[x][y].getFlow()[frame].x;
-						flow.y = 2 * points[x][y].getFlow()[frame].y;
-
-						calculateIxAndIy(image1pyramids[level], from, to, ix, iy);
-						calculateIt(image1pyramids[level], image2pyramids[level], from, to, flow, it);
-
-						MatrixXd aTa     = calculateAta(ix, iy, xOnLevel, yOnLevel);
-						MatrixXd aTb     = calculateAtB(ix, iy, it, xOnLevel, yOnLevel);
-						MatrixXd inverse = aTa.inverse();
-
-						MatrixXd v = inverse * aTb;
-						if (v.rows() == 2 && v.cols() == 1)
-						{
-							flow.x += v(0,0);
-							flow.y += v(1.0);
-							points[x][y].setFlow(flow.x, flow.y, frame);
-
-							if (level == 0)
+							// Verify if pixel is outside image
+							if (xOnLevel <= 0 || xOnLevel >= (image1pyramids[level].width() - 1) || yOnLevel <= 0 || yOnLevel >= (image1pyramids[level].height() - 1))
 							{
-								// DRAW
-								double finalX    = points[x][y].getPoint().x - points[x][y].getFlow()[frame].x;
-								double finalY    = points[x][y].getPoint().y - points[x][y].getFlow()[frame].y;
-								point finalPoint = bilinearInterpolation(finalX, finalY);
-
-								double initFlowX = points[x][y].getPoint().x;
-								double initFlowY = points[x][y].getPoint().y;
-								double lastFlowX = finalPoint.x;
-								double lastFlowY = finalPoint.y;
-
-								points[x][y].setPoint(finalPoint.x, finalPoint.y, true);
-
-								int finalFrame;
-								if (frame >= 30)
-								{
-									finalFrame = frame - 30;
-								}
-								else
-								{
-									finalFrame = 0;
-								}
-
-								image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
-								for (int f = frame - 1; f >= finalFrame; f--)
-								{
-									image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
-									initFlowX = lastFlowX;
-									initFlowY = lastFlowY;
-									lastFlowX = lastFlowX - points[x][y].getFlow()[f].x;
-									lastFlowY = lastFlowY - points[x][y].getFlow()[f].y;
-								}
-								image2.save("images/output/Segments/piramide.png", frame + 1);
+								points[x][y].updateFlow(0.0, 0.0, frame);
+								points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);
+								continue;
 							}
-						}
-						else
-						{
-							points[x][y].updateFlow(0.0, 0.0, frame);
-							points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);
+
+							point from, to, flow;
+							from.x = xOnLevel - 1;
+							from.y = yOnLevel - 1;
+							to.x   = xOnLevel + 1;
+							to.y   = yOnLevel + 1;
+							flow.x = 2 * points[x][y].getFlow()[frame].x;
+							flow.y = 2 * points[x][y].getFlow()[frame].y;
+
+							calculateIxAndIy(image1pyramids[level], from, to, ix, iy);
+							calculateIt(image1pyramids[level], image2pyramids[level], from, to, flow, it);
+
+							MatrixXd aTa     = calculateAta(ix, iy, xOnLevel, yOnLevel);
+							MatrixXd aTb     = calculateAtB(ix, iy, it, xOnLevel, yOnLevel);
+							MatrixXd inverse = aTa.inverse();
+
+							MatrixXd v = inverse * aTb;
+							if (v.rows() == 2 && v.cols() == 1)
+							{
+								flow.x += v(0,0);
+								flow.y += v(1.0);
+								points[x][y].setFlow(flow.x, flow.y, frame);
+
+								if (level == 0)
+								{
+									// DRAW
+									double finalX    = points[x][y].getPoint().x - points[x][y].getFlow()[frame].x;
+									double finalY    = points[x][y].getPoint().y - points[x][y].getFlow()[frame].y;
+									point finalPoint = bilinearInterpolation(finalX, finalY);
+
+									double initFlowX = points[x][y].getPoint().x;
+									double initFlowY = points[x][y].getPoint().y;
+									double lastFlowX = finalPoint.x;
+									double lastFlowY = finalPoint.y;
+
+									points[x][y].setPoint(finalPoint.x, finalPoint.y, true);
+
+									// int finalFrame;
+									// if (frame >= 30)
+									// {
+									// 	finalFrame = frame - 30;
+									// }
+									// else
+									// {
+									// 	finalFrame = 0;
+									// }
+
+									image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
+									// for (int f = frame - 1; f >= finalFrame; f--)
+									// {
+									// 	image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
+									// 	initFlowX = lastFlowX;
+									// 	initFlowY = lastFlowY;
+									// 	lastFlowX = lastFlowX - points[x][y].getFlow()[f].x;
+									// 	lastFlowY = lastFlowY - points[x][y].getFlow()[f].y;
+									// }
+									image2.save("images/output/Segments/piramide.png", frame + 1);
+								}
+							}
+							else
+							{
+								points[x][y].updateFlow(0.0, 0.0, frame);
+								points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);
+							}
 						}
 					}
 				}
