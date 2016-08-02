@@ -157,25 +157,25 @@ public:
 
 									points[x][y].setPoint(finalPoint.x, finalPoint.y, true);
 
-									// int finalFrame;
-									// if (frame >= 30)
-									// {
-									// 	finalFrame = frame - 30;
-									// }
-									// else
-									// {
-									// 	finalFrame = 0;
-									// }
+									int finalFrame;
+									if (frame >= 30)
+									{
+										finalFrame = frame - 30;
+									}
+									else
+									{
+										finalFrame = 0;
+									}
 
 									image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
-									// for (int f = frame - 1; f >= finalFrame; f--)
-									// {
-									// 	image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
-									// 	initFlowX = lastFlowX;
-									// 	initFlowY = lastFlowY;
-									// 	lastFlowX = lastFlowX - points[x][y].getFlow()[f].x;
-									// 	lastFlowY = lastFlowY - points[x][y].getFlow()[f].y;
-									// }
+									for (int f = frame - 1; f >= finalFrame; f--)
+									{
+										image2.draw_line((int) initFlowX, (int) initFlowY, (int) lastFlowX, (int) lastFlowY, pink);
+										initFlowX = lastFlowX;
+										initFlowY = lastFlowY;
+										lastFlowX = lastFlowX - points[x][y].getFlow()[f].x;
+										lastFlowY = lastFlowY - points[x][y].getFlow()[f].y;
+									}
 									image2.save("images/output/Segments/piramide.png", frame + 1);
 								}
 							}
@@ -183,7 +183,7 @@ public:
 							{
 								points[x][y].updateFlow(0.0, 0.0, frame);
 								points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);
-							}
+					     	}
 						}
 					}
 				}
@@ -225,17 +225,18 @@ public:
 			{
 				double finalX = x + flow.x;
 				double finalY = y + flow.y;
+				
+				point p = bilinearInterpolation(finalX, finalY);
 
-				if ((finalX < 0) || (finalX >= width) || (finalY < 0) || (finalY >= height))
+				if ((p.x < 0) || (p.x >= width) || (p.y < 0) || (p.y >= height))
 				{
 					points[x][y].setPoint(points[x][y].getPoint().x, points[x][y].getPoint().y, false);
 					it(x,y) = 0.0;
-					continue;
 				}
-
-				point p = bilinearInterpolation(finalX, finalY);
-
-				it(x,y) = - (image2(p.x, p.y) - image1(x,y));
+				else
+				{
+					it(x,y) = - (image2(p.x, p.y) - image1(x,y));
+				}
 			}
 		}
 	}
